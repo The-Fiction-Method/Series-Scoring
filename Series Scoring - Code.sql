@@ -44,6 +44,7 @@ name, sort,
 group_concat(char(9) || 'CASE WHEN ' || host || ' NOT NULL THEN 1 ELSE 0 END', ' +' || char(10)) AS hostCOUNT,
 group_concat('ifnull(' || abbr || '.' || host || ', 0)', ' + ') || ' + 0.0)/present_' || abbr || '.Present' AS hostAverage
 FROM Hosts
+WHERE host NOT LIKE '%IMDB%'
 GROUP BY name
 ), hostsSTDEV AS (
 SELECT
@@ -83,7 +84,7 @@ GROUP BY Hosts.name
 SELECT
 'SELECT' || char(10) ||
 '''' || Hosts.readable || ''' AS Series,' || char(10) ||
-'Title, ' || Hosts.abbr || '."Episode-Production",' || Hosts.abbr || '."Episode-Air",' || char(10) ||
+'Title, ' || Hosts.abbr || '."Episode-Air",' || char(10) ||
 'round(nullif((' || hostAverage || ', 0), 3) AS Average,' || char(10) ||
 hostStDev || ' AS StDev,' || char(10) ||
 'nullif(present_' || Hosts.abbr || '.Present, 0) AS "Hosts",' || char(10) ||
@@ -112,6 +113,7 @@ char(9) || 'WHERE "Episode-Air" LIKE ''S%%''' || char(10) ||
 char(9) || 'GROUP BY 1'
 AS OUT, sort, abbr
 FROM Hosts
+WHERE host NOT LIKE '%IMDB%'
 GROUP BY name
 ORDER BY sort
 ), rankEPIS AS (
@@ -126,7 +128,7 @@ rtrim(group_concat(
 'scoreS' || host || '.Title AS ' || host || '_Episodes,'
 , char(10)), ',') || char(10) ||
 'FROM (' || group_concat(
-'SELECT ifnull(' || host || ', ''Missing'') AS Score FROM "' || name || '"'
+'SELECT ifnull(' || host || ', ''Missing'') AS Score FROM "' || name || '" WHERE "Episode-Air" LIKE ''S%%'''
 , ' UNION ') || char(10) ||
 ')' || char(10) ||
 group_concat(char(9) || 'LEFT JOIN (SELECT group_concat(''"'' || Title || ''"'', '', '') AS Title, count(Title) AS Counts, ifnull(' || host || ', ''Missing'') AS scores FROM "' || name || '" WHERE "Episode-Air" LIKE ''S%%'' GROUP BY scores) scoreS' || host || ' ON scoreS' || host || '.scores = Score', char(10)) || char(10) ||
@@ -135,6 +137,7 @@ group_concat(char(9) || 'LEFT JOIN (SELECT group_concat(''"'' || Title || ''"'',
 'ORDER BY CASE WHEN Score IS ''Missing'' THEN -10 ELSE Score END DESC'
 AS OUT, sort, abbr
 FROM Hosts
+WHERE host NOT LIKE '%IMDB%'
 GROUP BY name ORDER BY sort
 )
 
@@ -142,14 +145,14 @@ GROUP BY name ORDER BY sort
 SELECT 'Score-Averages' AS 'Creates', group_concat(OUT, char(10) || char(10)) AS OUT FROM (
 SELECT
 'DROP VIEW IF EXISTS "Score-Averages";' || char(10) || 'CREATE VIEW "Score-Averages" AS ' || char(10) ||
-'WITH ' || group_concat(OUT, ', ') AS OUT, part, sort
+'WITH ' || group_concat(OUT, ', ') AS OUT, part, -1 AS sort
 FROM hostPresents
 GROUP BY part
 
 UNION ALL
 
 SELECT
-group_concat(OUT || char(10) || 'WHERE Average IS NOT NULL', char(10) || char(10) || 'UNION ALL' || char(10) || char(10)) || ';' AS OUT, part, sort
+group_concat(OUT || char(10) || 'WHERE Average IS NOT NULL', char(10) || char(10) || 'UNION ALL' || char(10) || char(10)) || ';' AS OUT, part, -1 AS sort
 FROM hostSummary
 ) GROUP BY sort
 
@@ -162,7 +165,7 @@ SELECT '@_Summary' AS 'Creates',
 'Series, Title, Average || '' average, '' || StDev || '' standard deviation'' as Summary' || char(10) ||
 'FROM "Score-Averages"' || char(10) || char(9) ||
 	'LEFT JOIN _Order_Series ON _Order_Series.name = "Score-Averages".series' || char(10) ||
-'ORDER BY _Order_Series.sort DESC, "Episode-Production" DESC;' AS OUT
+'ORDER BY _Order_Series.sort DESC, "Episode-Air" DESC;' AS OUT
 
 UNION ALL
 
