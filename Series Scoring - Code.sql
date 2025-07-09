@@ -186,7 +186,7 @@ DROP VIEW IF EXISTS '__RUN_Ranks-Season';
 CREATE VIEW '__RUN_Ranks-Season' AS
 SELECT
 Creates,
-OUT AS Series,
+rtrim(Out, ';' || char(10)) AS Series,
 rtrim(replace(replace(replace(replace(replace(OUT, 'scoreS', 'scoreS01'), 'S%%', 'S01%%'), ' Score', ' Score_S01'), '_Count', '_Count_S01'), '_Episodes', '_Episodes_S01'), ';' || char(10)) as S01,
 rtrim(replace(replace(replace(replace(replace(OUT, 'scoreS', 'scoreS02'), 'S%%', 'S02%%'), ' Score', ' Score_S02'), '_Count', '_Count_S02'), '_Episodes', '_Episodes_S02'), ';' || char(10)) as S02,
 rtrim(replace(replace(replace(replace(replace(OUT, 'scoreS', 'scoreS03'), 'S%%', 'S03%%'), ' Score', ' Score_S03'), '_Count', '_Count_S03'), '_Episodes', '_Episodes_S03'), ';' || char(10)) as S03
