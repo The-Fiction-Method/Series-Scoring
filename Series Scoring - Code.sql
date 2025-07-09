@@ -106,7 +106,7 @@ name,
 'NULL AS Score,' || char(10) ||
 rtrim(group_concat(
 'count(' || host || ') AS ' || host || '_Count,' || char(10) ||
-'round(sum(' || host || ')/count(' || host || '), 3) || '' - Average'' AS "' || host || '_Episodes",'
+'round(sum(' || host || ')/count(' || host || '), 3) || '' - Average'' AS ' || host || '_Episodes,'
 , char(10)), ',') || char(10) ||
 'FROM "' || name || '"' || char(10) ||
 char(9) || 'WHERE "Episode-Air" LIKE ''S%%''' || char(10) ||
@@ -122,7 +122,7 @@ SELECT
 name,
 'SELECT' || char(10) ||
 '''' || readable || ''' AS Series,' || char(10) ||
-'Score,' || char(10) ||
+' Score,' || char(10) ||
 rtrim(group_concat(
 'scoreS' || host || '.Counts AS ' || host || '_Count,' || char(10) ||
 'scoreS' || host || '.Title AS ' || host || '_Episodes,'
@@ -187,9 +187,9 @@ CREATE VIEW '__RUN_Ranks-Season' AS
 SELECT
 Creates,
 OUT AS Series,
-replace(replace(OUT, 'scoreS', 'scoreS01'), 'S%%', 'S01%%') as S01,
-replace(replace(OUT, 'scoreS', 'scoreS02'), 'S%%', 'S02%%') as S02,
-replace(replace(OUT, 'scoreS', 'scoreS03'), 'S%%', 'S03%%') as S03
+rtrim(replace(replace(replace(replace(replace(OUT, 'scoreS', 'scoreS01'), 'S%%', 'S01%%'), ' Score', ' Score_S01'), '_Count', '_Count_S01'), '_Episodes', '_Episodes_S01'), ';' || char(10)) as S01,
+rtrim(replace(replace(replace(replace(replace(OUT, 'scoreS', 'scoreS02'), 'S%%', 'S02%%'), ' Score', ' Score_S02'), '_Count', '_Count_S02'), '_Episodes', '_Episodes_S02'), ';' || char(10)) as S02,
+rtrim(replace(replace(replace(replace(replace(OUT, 'scoreS', 'scoreS03'), 'S%%', 'S03%%'), ' Score', ' Score_S03'), '_Count', '_Count_S03'), '_Episodes', '_Episodes_S03'), ';' || char(10)) as S03
 FROM __RUN
 	WHERE Creates like '%Ranks%';
 
@@ -217,7 +217,7 @@ name,
 'Score,' || char(10) ||
 rtrim(group_concat(
 char(9) || '"' || host || '",' || char(10) ||
-char(9) || '"' || replace(host, '_Count', '_Episodes') || '"'
+char(9) || replace(host, '_Count', '_Episodes')
 , ',' || char(10)), ',') || char(10) ||
 'FROM "' || name || '"'
 AS OUT
