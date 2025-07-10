@@ -165,7 +165,7 @@ SELECT '@_Summary' AS 'Creates',
 'Series, Title, Average || '' average, '' || StDev || '' standard deviation'' as Summary' || char(10) ||
 'FROM "Score-Averages"' || char(10) || char(9) ||
 	'LEFT JOIN _Order_Series ON _Order_Series.name = "Score-Averages".series' || char(10) ||
-'ORDER BY _Order_Series.sort DESC, "Episode-Air" DESC;' AS OUT
+'ORDER BY _Order_Series.sort DESC, row_number() over () DESC;' AS OUT
 
 UNION ALL
 
