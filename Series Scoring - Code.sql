@@ -19,6 +19,25 @@ CREATE TABLE "_Order_Series" (
 	PRIMARY KEY("sort" AUTOINCREMENT)
 )
 
+CREATE TABLE "Stream_Notes" (
+	"Stream_Date"	TEXT,
+	"Stream_Link"	TEXT UNIQUE,
+	"Notes"	TEXT,
+	...
+);
+
+DROP VIEW IF EXISTS "_Stream_Notes_Update";
+CREATE VIEW  "_Stream_Notes_Update" AS
+WITH RECURSIVE TABS AS (
+	SELECT name FROM sqlite_master WHERE type IS 'table'
+)
+SELECT
+	_Order_Series.name AS "Series",
+	'INSERT INTO Stream_Notes (Stream_Link) SELECT LINK FROM "' || TABS.name || '" WHERE Link IS NOT NULL ON CONFLICT (Stream_Link) DO NOTHING;' AS 'INSERT_Commands'
+FROM TABS
+	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
+ORDER BY _Order_Series.sort;
+
 
 DROP VIEW IF EXISTS '__RUN';
 CREATE VIEW '__RUN' AS
