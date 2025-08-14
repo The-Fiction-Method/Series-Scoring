@@ -165,3 +165,21 @@ This view generates the code to select the score and host columns in the `Ranks-
 The idea being you can then copy this code and edit it, such as removing specific hosts, so you can select just those you are interested in.
 If you have created a ranks view that includes per-season columns, then this can also be used to easily select just those columns for a single season or all the columns for a single host across the series and seasons.
 Really it is just providing you with code so you do not need to write it out by hand; a labor-saving device.
+
+##	Stream_Notes
+
+I have added support for a "_Stream_Notes" table that relates to the other tables via the "Link" column, though in this table it is "Stream_Link".
+The "Stream_Link" column must only allow unique values.
+The purpose is to record any notes concerning each stream, such as if scores for past episodes are changed.
+
+```
+CREATE TABLE "Stream_Notes" (
+	"Stream_Date"	TEXT,
+	"Stream_Link"	TEXT UNIQUE,
+	"Notes"	TEXT,
+	...
+);
+```
+
+The "_Stream_Notes_Update" view provides code that will add any missing links to this table, based on what is in the @series tables.
+This is why the "Stream_Link" column can only allow unique values, as that allows a constraint that prevents links from being duplicated.
