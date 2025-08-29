@@ -150,7 +150,7 @@ rtrim(group_concat(
 'SELECT ifnull(' || host || ', ''Missing'') AS Score FROM "' || name || '" WHERE "Episode-Air" LIKE ''S%%'''
 , ' UNION ') || char(10) ||
 ')' || char(10) ||
-group_concat(char(9) || 'LEFT JOIN (SELECT group_concat(''"'' || Title || ''"'', '', '') AS Title, count(Title) AS Counts, ifnull(' || host || ', ''Missing'') AS scores FROM "' || name || '" WHERE "Episode-Air" LIKE ''S%%'' GROUP BY scores) scoreS' || host || ' ON scoreS' || host || '.scores = Score', char(10)) || char(10) ||
+group_concat(char(9) || 'LEFT JOIN (SELECT group_concat(''"'' || Title || ''"'', '', '') AS Title, count(Title) AS Counts, ifnull(' || host || ', ''Missing'') AS scores FROM "' || name || '" WHERE "Episode-Air" LIKE ''S%%'' AND Link IS NOT NULL GROUP BY scores) scoreS' || host || ' ON scoreS' || host || '.scores = Score', char(10)) || char(10) ||
 'WHERE Score IS NOT NULL' || char(10) ||
 'GROUP BY Score' || char(10) ||
 'ORDER BY CASE WHEN Score IS ''Missing'' THEN -10 ELSE Score END DESC'
