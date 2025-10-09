@@ -122,8 +122,8 @@ ORDER BY Hosts.sort
 SELECT
 name,
 'SELECT ''' || readable || ''' AS Series, ' || char(10) ||
-'NULL AS Score,' || char(10) ||
 rtrim(group_concat(
+'NULL AS Score,' || char(10) ||
 'count(' || host || ') AS ' || host || '_Count,' || char(10) ||
 'round(sum(' || host || ')/count(' || host || '), 3) || '' - Average'' AS ' || host || '_Episodes,'
 , char(10)), ',') || char(10) ||
@@ -141,8 +141,8 @@ SELECT
 name,
 'SELECT' || char(10) ||
 '''' || readable || ''' AS Series,' || char(10) ||
-' Score,' || char(10) ||
 rtrim(group_concat(
+' Score,' || char(10) ||
 'scoreS' || host || '.Counts AS ' || host || '_Count,' || char(10) ||
 'scoreS' || host || '.Title AS ' || host || '_Episodes,'
 , char(10)), ',') || char(10) ||
