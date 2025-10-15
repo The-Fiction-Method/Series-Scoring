@@ -33,7 +33,7 @@ WITH RECURSIVE TABS AS (
 )
 SELECT
 	_Order_Series.name AS "Series",
-	'INSERT INTO Stream_Notes (Stream_Link) SELECT LINK FROM "' || TABS.name || '" WHERE Link IS NOT NULL ON CONFLICT (Stream_Link) DO NOTHING;' AS 'INSERT_Commands'
+	'INSERT INTO Stream_Notes (Stream_Link, Stream_Date) SELECT LINK, date() FROM "' || TABS.name || '" WHERE Link IS NOT NULL ON CONFLICT (Stream_Link) DO NOTHING;' AS 'INSERT_Commands'
 FROM TABS
 	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
 ORDER BY _Order_Series.sort;
