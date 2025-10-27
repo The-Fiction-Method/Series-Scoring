@@ -183,3 +183,36 @@ CREATE TABLE "Stream_Notes" (
 
 The "_Stream_Notes_Update" view provides code that will add any missing links to this table, based on what is in the @series tables.
 This is why the "Stream_Link" column can only allow unique values, as that allows a constraint that prevents links from being duplicated.
+
+---
+
+#	R-Shiny Visualizer ("app_Series-Scoring.r")
+
+While the database is great for tracking scores and some of the calculations and grouping, there are better options for fully visualizing the data.
+That that end, I have built such a visualizer using R-Shiny, which is free and open source (both R and the packages used).
+
+To use this, first install R that can be found here: [R-Project.org](https://www.r-project.org/).
+Next, place the "app_Series-Scoring.r" in the same folder as the database, as this is where it looks for the file.
+Open the R GUI and copy the contents of the R script into it, or at least its beginning with the `if (!require(...` lines as these tell R to install the necessary packages.
+There will likely be pop-ups to confirms R is allowed to go online and which repository it should download the packages from.
+
+When you run the script it will create a front-end webpage to present the information and a back-end in which R does all of the data processing.
+The front-end will either be opened directly into your web browser or a URL will be shown to you for this front-end.
+The URL will resemble `127.0.0.1:1234`.
+This tells the browser to look on the local machine (`127.0.0.1`) at a specific port (`1234`).
+The port will change whenever the script is run.
+
+The first steps to using the front-end are to select the database file to load from the drop down on at the top of the side bar on the left side of the page, pressing the button to load it, and then selecting the desired table in the list below it, pressing the button to load it as well.
+At this point the data will be loaded and the rest of the UI will fill out, and I would like to believe I can let you explore it on your own.
+
+There are a couple important points about this though.
+One is the visualizer expects there to be some value in the database table's "Link" column, to recognize there are scores recorded for that episode.
+Not every part of the visualizer as this expectation, but some do.
+Another is the visualizer supports an "Episode-Production" column in addition to "Episode-Air".
+This is for tracking the production order of the episodes and is from why I first built the database, but is optional.
+
+The vizualer supports other, optional columns, though "Episode-Production" is special.
+Other special optional columns are any that include `Rating` in the column name.
+These are for if you want to record the rating given to an episode from some non-Host source.
+By including `Rating` in the column name, the visualizer will exclude it from computations, but can still show it for comparison.
+Lastly, you can add arbitrary "TEXT" columns that the visualizer will allow to be shown or not, but will not influence anything, like the optional `Rating` columns.

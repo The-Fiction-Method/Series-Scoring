@@ -55,7 +55,7 @@ dataLOAD	=	function(name = DATA$Default, TAB)	{
 	}
 
 	DATA$TABLE	<-	hold
-	
+
 	#	Hosts
 	DATA$colHOST	<-	hold	|>	select(where(is.numeric) & !contains("Rating"))	|>	names()
 	#	Episode Info
@@ -114,6 +114,24 @@ ranksHOST	<-	function(IN, COL = ', ')	{
 		arrange(desc(Score))
 }
 
+ranksSUMM	<-	function(IN, ROUND = 2)	{
+	bind_rows(
+		IN	|>	summarize(Count	=	sum(!is.na(Score)),
+			Score	=	mean(Score, na.rm = T)	|>	round(ROUND),
+			Titles = 'Mean')	|>	relocate(Score, .before = Count),
+		IN	|>	summarize(Count	=	sum(!is.na(Score)),
+			Score	=	sd(Score, na.rm = T)	|>	round(ROUND),
+			Titles = 'StDev')	|>	relocate(Score, .before = Count),
+		IN	|>	summarize(Count	=	sum(!is.na(Score)),
+			Score	=	median(Score, na.rm = T)	|>	round(ROUND),
+			Titles = 'Median')	|>	relocate(Score, .before = Count),
+		IN	|>	summarize(Count	=	sum(!is.na(Score)),
+			Score	=	mad(Score, na.rm = T)	|>	round(ROUND),
+			Titles = 'MAD')	|>	relocate(Score, .before = Count),
+		IN	|>	ranksHOST()	|>	select(!Host)
+	)
+}
+
 graphHIST	<-	function(IN)	{
 	ggplot(IN) +
 		stat_bin(aes(y = Score, fill = Host), color = "black", breaks = (0:20)/2) +
@@ -153,8 +171,9 @@ graphPLOT	<-	function(IN)	{
 }
 
 
+
 server <- function(input, output, session) {
-	# output$Title	=	renderUI({	titlePanel("The Landing Party - Series Scoring")	})
+	# output$Title	=	renderUI({	titlePanel("Series Scoring")	})
 
 	observeEvent(input$dataDBload,	{
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables", target = seas)	})
@@ -241,7 +260,7 @@ server <- function(input, output, session) {
 
 #	Plots
 	output$hostPLOT	<-	renderPlot({
-		hold	<-	DATA$tabLONG	|>	
+		hold	<-	DATA$tabLONG	|>
 				filter(Host %in% input$dataHOSTS | Host %in% input$dataEXTRASplot)
 		if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
 		hold	|>	graphPLOT()
@@ -263,33 +282,37 @@ server <- function(input, output, session) {
 	observe({
 		output$clickPLOT	<-	renderTable({
 			hold	<-	DATA$tabLONG	|>	filter(!is.na(Score))
-			
+
 			if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order) |>
 				rename(Air = Episode.Air)
 			if (DATA$exiPRD)	hold	<-	hold	|>	rename(Production = Episode.Production)
-				
+
 			hold	|>	nearPoints(input$clickPLOT, threshold = 10)	|>
 				select(any_of(c("Host", "Score", "Production", "Air", "Title")))	|>	mutate(Score = paste0(Score))
 		})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
+#	Host Ranks
 	observe({
 		lapply(DATA$colHOST, function(host)	{appendTab(inputId = "ranks", tab = tabPanel(host,
 			tagList(
 				h4("All Seasons"),
 				renderTable({
 					DATA$tabLONG	|>	filter(Host == host)	|>
-					ranksHOST()	|>	mutate(Score = paste0(Score))	|>	select(!Host)
+						ranksSUMM(input$roundTerm)	|>	mutate(Score = paste0(Score))	|>
+					filter(!(Titles %in% c("Mean", "StDev", "Median", "MAD")) | (Titles %in% input$dataSTATS))	|>	mutate(Titles = str_replace(Titles, "StDev", "Standard Deviation"))
+
 				}, striped = TRUE, na=''),
 				lapply(DATA$SEASONS, function(seas)	{tagList(
 					hr(style = "border-color: #333"),
 					h4(str_replace(seas, 'S', 'Season ')),
 					renderTable({
-						out	<-	DATA$tabLONG	|>	filter(Host == host)	|>	filter(Season == seas)	|>#group_by(Season)	|>
-							ranksHOST()
+						out	<-	DATA$tabLONG	|>	filter(Host == host)	|>	filter(Season == seas)	|>
+							ranksSUMM(input$roundTerm)
 
-						if (!input$hostNA)	{out	<-	out	|>	filter(!is.na(Score))}
-						out	|>	mutate(Score = paste0(Score))	|>	select(!Host)
+						if (!input$rankNA)	{out	<-	out	|>	filter(!is.na(Score))}
+						out	|>	mutate(Score = paste0(Score))	|>
+							filter(!(Titles %in% c("Mean", "StDev", "Median", "MAD")) | (Titles %in% input$dataSTATS))	|>	mutate(Titles = str_replace(Titles, "StDev", "Standard Deviation"))
 				}, striped = TRUE, na='')
 				)})
 			)
@@ -336,7 +359,6 @@ server <- function(input, output, session) {
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 }
 
-
 tableORGui	<-	function(name, season = NULL)	{
 	if (is.null(season))	season	<-	name	|>	str_replace('S', 'Season ')
 
@@ -344,7 +366,7 @@ tableORGui	<-	function(name, season = NULL)	{
 }
 
 ui <- function(request)	{fluidPage(
-	titlePanel("The Landing Party - Series Scoring"),
+	titlePanel("Series Scoring"),
 	sidebarLayout(
 		sidebarPanel(
 			selectInput(inputId	=	"dataDB",	label	=	"Database to Load",	selectize	=	FALSE,
@@ -402,7 +424,7 @@ ui <- function(request)	{fluidPage(
 				tabPanel("Host Ranks",
 					tabsetPanel(id	=	"ranks",
 						header	=	tagList(
-							checkboxInput("hostNA",	label = "Include Missing Episodes")
+							checkboxInput("rankNA",	label = "List Missing Episodes per Season")
 						)
 					)
 				),
