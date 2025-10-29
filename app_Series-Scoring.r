@@ -45,14 +45,7 @@ dataLOAD	=	function(name = DATA$Default, TAB)	{
 	)
 	hold	<-	dbReadTable(con, TAB)	|>	tibble()
 	dbDisconnect(con)
-	hold	<-	hold	|>	mutate(	Episode.Air	=	as.factor(Episode.Air)	)
-	if ( hold |> names() |> str_detect("Production") |> any() )	{
-		hold	<-	hold	|>	mutate(Episode.Production	=	as.ordered(Episode.Production))
-		DATA$exiPRD	<-	TRUE
-	}	else	{
-		hold	<-	hold	|>	bind_cols(Episode.Production	=	ordered(NA))
-		DATA$exiPRD	<-	FALSE
-	}
+	hold	<-	hold	|> mutate(across(contains("Episode"), as.factor))
 
 	DATA$TABLE	<-	hold
 
@@ -60,6 +53,7 @@ dataLOAD	=	function(name = DATA$Default, TAB)	{
 	DATA$colHOST	<-	hold	|>	select(where(is.numeric) & !contains("Rating"))	|>	names()
 	#	Episode Info
 	DATA$colEPIN	<-	hold	|>	select(where(is.factor) | matches("Title"))	|>	names()
+	DATA$exiPRD		<-	length(DATA$colEPIN) > 2
 	#	Extra Columns
 	DATA$colEXTR	<-	hold	|>	select((where(is.character) | contains("Rating")) & !(matches("Title") | matches("Link")))	|>	names()
 
@@ -89,9 +83,8 @@ tableFORM	<-	function(IN, selORDER = NULL)	{
 		# mutate(across(contains("IMDB"), function(x) {paste0(x) |> str_remove('NA')}))	|>
 		#	alternative that only applies to IMDB columns, but using colEXTR should be more reliable
 
-	if (isTruthy(selORDER))	out	<-	out	|>	arrange(.data[[selORDER]])	|>
-		rename(Production = Episode.Production)
-	out	|>	rename(Air = Episode.Air)
+	if (isTruthy(selORDER))	out	<-	out	|>	arrange(.data[[selORDER]])
+	out	|>	rename_with(function(IN) str_remove(IN, "Episode."))
 }
 
 tableLONG	<-	function(IN)	{
@@ -150,11 +143,13 @@ graphHIST	<-	function(IN)	{
 }
 
 graphPLOT	<-	function(IN)	{
-	SUMM	<-	IN	|>	group_by(Host, Season = str_sub(Episode.Air, 1, 3))	|>	summarize(Mean = mean(Score, na.rm = T), SD = sd(Score, na.rm = T), MAD = mad(Score, na.rm = T))
+	SUMM	<-	IN	|>	group_by(Host, Season)	|>	summarize(Mean = mean(Score, na.rm = T), SD = sd(Score, na.rm = T), MAD = mad(Score, na.rm = T))
 
 	ggplot(IN, aes(x = Order, group = 1)) +
 		geom_line(aes(y = Score, color = Host), linewidth = 1, na.rm = T) +
-		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x") +
+		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",
+			labeller	=	labeller(Season = function(IN) str_replace(IN, "S", "Season "))
+		) +
 		scale_y_continuous(limits = c(0, 10),	expand = c(0.02, 0),	minor_breaks	=	NULL,
 			name	=	"Score",
 			breaks	=	(0:20) / 2,
@@ -173,7 +168,7 @@ graphPLOT	<-	function(IN)	{
 
 
 server <- function(input, output, session) {
-	# output$Title	=	renderUI({	titlePanel("Series Scoring")	})
+	# output$Title	=	renderUI({	titlePanel("The Landing Party - Series Scoring")	})
 
 	observeEvent(input$dataDBload,	{
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables", target = seas)	})
@@ -196,8 +191,9 @@ server <- function(input, output, session) {
 		output$ordCON	<-	renderUI({
 			if (DATA$exiPRD)	{
 				radioButtons(inputId	=	"tableORDER",	label	=	"Ordering",	inline	=	TRUE,
-					choiceNames	=	c("Production", "Air"),	choiceValues	=	c("Episode.Production", "Episode.Air"),
-					selected	=	"Episode.Production"
+					choiceNames		=	DATA$colEPIN[!(DATA$colEPIN %in% "Title")]	|>	str_remove("Episode."),
+					choiceValues	=	DATA$colEPIN[!(DATA$colEPIN %in% "Title")],
+					selected		=	DATA$colEPIN[!(DATA$colEPIN %in% "Title")][1]
 				)
 			}	else	{	NULL	}
 		})
@@ -225,7 +221,7 @@ server <- function(input, output, session) {
 
 	#	this will set a default to input$tableORDER so databases without Production order still work
 	TABLES$tableORD	<-	reactive({
-		if (isTruthy(input$tableORDER))	{return(input$tableORDER)}	else	{return("Episode.Air")}
+		if (isTruthy(input$tableORDER))	{return(input$tableORDER)}	else	{return(DATA$colEPIN[!(DATA$colEPIN %in% "Title")][1])}
 	})	|>	bindEvent(input$dataTABload, input$tableORDER)
 
 #	Tables
@@ -283,12 +279,11 @@ server <- function(input, output, session) {
 		output$clickPLOT	<-	renderTable({
 			hold	<-	DATA$tabLONG	|>	filter(!is.na(Score))
 
-			if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order) |>
-				rename(Air = Episode.Air)
-			if (DATA$exiPRD)	hold	<-	hold	|>	rename(Production = Episode.Production)
+			if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
+			hold	<-	hold	|>	rename_with(function(IN) str_remove(IN, "Episode."))
 
 			hold	|>	nearPoints(input$clickPLOT, threshold = 10)	|>
-				select(any_of(c("Host", "Score", "Production", "Air", "Title")))	|>	mutate(Score = paste0(Score))
+				select(any_of(c("Host", "Score")), (where(is.factor) & !any_of("Order")), Title)	|>	mutate(Score = paste0(Score))
 		})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
