@@ -56,7 +56,7 @@ The key thing is the season number to be identified starting with an `S`.
 Naturally the "hostA", "hostB", etc. columns should be renamed as appropriate, and you can add more of them if you wish.
 It is crucial they remain `NUMERIC` columns however, as this is used to identify them.
 
-In addition to the series tables, the "_Order_Series" table to record their sorting order, readable name, and abbreviation is also required.
+In addition to the series tables, the "_Order_Series" table to record their sorting order, readable name, and abbreviation is also required.
 
 ```
 CREATE TABLE "_Order_Series" (
@@ -208,11 +208,13 @@ At this point the data will be loaded and the rest of the UI will fill out, and 
 There are a couple important points about this though.
 One is the visualizer expects there to be some value in the database table's "Link" column, to recognize there are scores recorded for that episode.
 Not every part of the visualizer as this expectation, but some do.
-Another is the visualizer supports an "Episode-Production" column in addition to "Episode-Air".
+Another is the visualizer supports multiple episode order columns, but expects them to include "Episode" in the name.
+Ideally these columns will be named `Episode-X`, `Episode Y` or `Episode.Z` for best compatibility with the applet.
+(R will replace spaces and dashes with `.` when they are in column names.)
 This is for tracking the production order of the episodes and is from why I first built the database, but is optional.
 
-The vizualer supports other, optional columns, though "Episode-Production" is special.
-Other special optional columns are any that include `Rating` in the column name.
-These are for if you want to record the rating given to an episode from some non-Host source.
-By including `Rating` in the column name, the visualizer will exclude it from computations, but can still show it for comparison.
-Lastly, you can add arbitrary "TEXT" columns that the visualizer will allow to be shown or not, but will not influence anything, like the optional `Rating` columns.
+The vizualer supports other, optional columns as well.
+Columns that include `Rating` in the name will be excluded from calculations but can be toggled on and off for the graphs.
+These are for if you want to record the rating given to an episode from some non-Host source, allowing comparisons.
+
+Lastly, you can add arbitrary columns of data type "TEXT" that the visualizer will allow to be shown or not, but will not influence anything, like the optional `Rating` columns.
