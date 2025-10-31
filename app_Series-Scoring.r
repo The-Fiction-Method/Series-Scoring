@@ -8,15 +8,14 @@ if (!require(tidyr))	install.packages("tidyr");		library(tidyr)
 if (!require(ggplot2))	install.packages("ggplot2");	library(ggplot2)
 
 if (interactive())	{
-	# setwd("CURRENT_DIR")
-	#	set the directory this script and the database are within
+	setwd("C:/Users/packe/Documents/Series Scoring")
 }
 
 DATA	<-	new.env()
 TABLES	<-	new.env()
 GRAPH	<-	new.env()
 FILES	<-	list.files(pattern = "*.db")
-DATA$Default	<-	"Series Scoring.db"
+DATA$Default	<-	"The Landing Party.db"
 DATA$TABS	<-	NULL
 DATA$TABLE	<-	NULL
 GRAPH$graphHEIGHT	<-	900
@@ -62,7 +61,7 @@ dataLOAD	=	function(name = DATA$Default, TAB)	{
 	DATA$COUNThosts$IMDB_Rating	<-	FALSE
 	GRAPH$hostPAL	<-	scales:::pal_hue()(length(DATA$COUNThosts))
 
-	DATA$SEASONS	<-	hold$Episode.Air	|>	str_sub(1, 3)	|>	unique()
+	DATA$SEASONS	<-	hold[[	DATA$colEPIN[!(str_detect(DATA$colEPIN, "Production") | str_detect(DATA$colEPIN, "Title"))][1]	]]	|>	str_sub(1, 3)	|>	unique()
 }
 
 tableSTATS	<-	function(IN, SEL)	{
@@ -204,7 +203,10 @@ server <- function(input, output, session) {
 
 		updateCheckboxGroupInput(inputId = "dataHOSTS",		choices	= DATA$colHOST,	selected = names(DATA$COUNThosts)[unlist(DATA$COUNThosts)]	)
 
-		updateCheckboxGroupInput(inputId = "dataEXTRAS",		inline = TRUE,	choices	= DATA$colEXTR	)
+		updateCheckboxGroupInput(inputId = "dataEXTRAS",	inline = TRUE,
+			choiceValues	=	DATA$colEXTR,
+			choiceNames		=	DATA$colEXTR	|>	str_replace(fixed('.'), ' ')
+		)
 		updateCheckboxGroupInput(inputId = "dataEXTRASplot",	inline = TRUE,	choices	= DATA$colEXTR[str_detect(DATA$colEXTR, "Rating")]	)
 		if (is.null(DATA$colEXTR))	{
 			updateCheckboxGroupInput(inputId = "dataEXTRAS",		label = '')
@@ -222,6 +224,9 @@ server <- function(input, output, session) {
 	#	this will set a default to input$tableORDER so databases without Production order still work
 	TABLES$tableORD	<-	reactive({
 		if (isTruthy(input$tableORDER))	{return(input$tableORDER)}	else	{return(DATA$colEPIN[!(DATA$colEPIN %in% "Title")][1])}
+	})	|>	bindEvent(input$dataTABload, input$tableORDER)
+	TABLES$tableORDseas	<-	reactive({
+		if (isTruthy(input$tableORDER) & !str_detect(input$tableORDER, "Production"))	{return(input$tableORDER)}	else	{return(DATA$colEPIN[!(DATA$colEPIN %in% "Title" | str_detect(DATA$colEPIN, "Production"))][1])}
 	})	|>	bindEvent(input$dataTABload, input$tableORDER)
 
 #	Tables
@@ -242,7 +247,8 @@ server <- function(input, output, session) {
 		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "tables", tab = tabPanel(seas	|>	str_replace('S', 'Season '),
 			tagList(
 				renderTable({
-					TABLES$tableORG()	|>	filter(str_starts(Air, seas))	|>
+					# TABLES$tableORG()	|>	filter(	str_starts(	.data[[	str_remove(TABLES$tableORD(), "Episode.")	]],	seas))	|>
+					TABLES$tableORG()	|>	filter(	str_starts(	.data[[	str_remove(TABLES$tableORDseas(), "Episode.")	]],	seas))	|>
 
 					select(!any_of(DATA$colHOST) | any_of(input$dataHOSTS))	|>
 					select(!any_of(DATA$colSTAT) | any_of(input$dataSTATS))	|>
@@ -260,7 +266,7 @@ server <- function(input, output, session) {
 				filter(Host %in% input$dataHOSTS | Host %in% input$dataEXTRASplot)
 		if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
 		hold	|>	graphPLOT()
-	},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)
+	},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>	bindCache(input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD())
 
 	observe({
 		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "plots", tab = tabPanel(seas	|>	str_replace('S', 'Season '),
@@ -321,7 +327,7 @@ server <- function(input, output, session) {
 			DATA$tabLONG	|>	filter(!is.na(Score))	|>
 			filter(Host %in% input$dataHOSTS) |>
 			graphHIST()
-		},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)
+		},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>	bindCache(input$dataHOSTS)
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 	observe({
