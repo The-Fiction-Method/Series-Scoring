@@ -8,14 +8,15 @@ if (!require(tidyr))	install.packages("tidyr");		library(tidyr)
 if (!require(ggplot2))	install.packages("ggplot2");	library(ggplot2)
 
 if (interactive())	{
-	setwd("C:/Users/packe/Documents/Series Scoring")
+	# setwd("CURRENT_DIR")
+	#	place the path for the directory containing these files if working in the R GUI
 }
 
 DATA	<-	new.env()
 TABLES	<-	new.env()
 GRAPH	<-	new.env()
 FILES	<-	list.files(pattern = "*.db")
-DATA$Default	<-	"The Landing Party.db"
+DATA$Default	<-	"Series Scoring.db"
 DATA$TABS	<-	NULL
 DATA$TABLE	<-	NULL
 GRAPH$graphHEIGHT	<-	900
@@ -445,3 +446,4 @@ ui <- function(request)	{fluidPage(
 
 
 shinyApp(ui = ui, server = server)
+
