@@ -130,6 +130,7 @@ ranksSUMM	<-	function(IN)	{
 	)
 }
 
+
 graphPLOT	<-	function(IN)	{
 	SUMM	<-	IN	|>	group_by(Host, Season)	|>	summarize(Mean = mean(Score, na.rm = T))
 
@@ -138,10 +139,10 @@ graphPLOT	<-	function(IN)	{
 		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",
 			labeller	=	labeller(Season = function(IN) str_SEASON(IN))
 		) +
-		scale_y_continuous(limits = c(0, 10),	expand = c(0.02, 0),	minor_breaks	=	NULL,
+		scale_y_continuous(limits = DATA$scoreRANG,	expand = c(0.02, 0),	minor_breaks	=	NULL,
 			name	=	"Score",
-			breaks	=	(0:20) / 2,
-			labels	=	(0:20) / 2
+			breaks	=	seq(-10, 10, by = DATA$scoreSTEP),
+			labels	=	seq(-10, 10, by = DATA$scoreSTEP)
 		) +
 		scale_x_discrete(minor_breaks	=	NULL,
 			labels = function(breaks){paste0(rep(c("", "\n"), length.out = length(breaks)), str_remove(breaks, "S\\d+:"))}
@@ -155,11 +156,11 @@ graphPLOT	<-	function(IN)	{
 
 graphHIST	<-	function(IN)	{
 	ggplot(IN) +
-		stat_bin(aes(y = Score, fill = Host), color = "black", breaks = (0:20)/2) +
-		scale_y_continuous(limits = c(0, 10),	expand = c(0.02, 0),	minor_breaks = NULL,
+		stat_bin(aes(y = Score, fill = Host), color = "black", breaks = seq(-10, 10, by = DATA$scoreSTEP)) +
+		scale_y_continuous(limits = DATA$scoreRANG,	expand = c(0.02, 0),	minor_breaks = NULL,
 			name	=	"Score",
-			breaks	=	(0:20) / 2 - 0.25,
-			labels	=	(0:20) / 2
+			breaks	=	seq(-10, 10, by = DATA$scoreSTEP) - 0.25,
+			labels	=	seq(-10, 10, by = DATA$scoreSTEP)
 		) +
 		scale_x_continuous(limits = c(0, NA), expand = c(0.02, 0),
 			name	=	"Count",
@@ -171,9 +172,8 @@ graphHIST	<-	function(IN)	{
 }
 
 
-
 server <- function(input, output, session) {
-	# output$Title	=	renderUI({	titlePanel("The Landing Party - Series Scoring")	})
+	output$Title	=	renderUI({	titlePanel("Series Scoring")	})
 
 	observeEvent(input$dataDBload,	{
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables",		target = seas)	})
@@ -183,6 +183,8 @@ server <- function(input, output, session) {
 
 		dataLOADtabs(input$dataDB)
 		updateSelectInput(inputId = "dataTAB",	choices	=	setNames(DATA$TABS$TABS,	DATA$TABS$name)	)
+
+		output$Title	=	renderUI({	titlePanel(paste0("Series Scoring - ", str_remove(input$dataDB, '.db')))	})
 	},	priority	=	10)
 
 	observeEvent(input$dataTABload,	{
@@ -218,13 +220,21 @@ server <- function(input, output, session) {
 			updateCheckboxGroupInput(inputId = "dataEXTRAS",		label = '')
 			updateCheckboxGroupInput(inputId = "dataEXTRASplot",	label = '')
 		}
-
-		# output$clickHISTverb	<-	renderPrint({	input$clickHIST$y + 0.25	})
 	},	priority	=	10)
 
 	observeEvent(list(input$dataHOSTS, input$dataTABload), {
 		DATA$tabFORM	<-	DATA$TABLE	|>	tableSTATS(input$dataHOSTS)
+	},	priority = 5,	ignoreInit = TRUE)
+
+	observeEvent(input$dataTABload, {
 		DATA$tabLONG	<-	DATA$TABLE	|>	tableLONG()
+
+		holdSCORE	<-	DATA$tabLONG	|>	filter(!str_detect(Host, "Rating"))	|>	select(Score)
+		DATA$scoreSTEP	<-	ifelse(all(	holdSCORE == round(holdSCORE)	), 1, 0.5)
+		updateSliderInput(inputId = "ranksRANGE",	step = DATA$scoreSTEP)
+
+		DATA$scoreRANG	<-	holdSCORE	|>	rbind(0)	|>	range(na.rm = TRUE)#	|>	reactive()
+		updateSliderInput(inputId = "ranksRANGE",	min = DATA$scoreRANG[1],	max = DATA$scoreRANG[2],	value = c(-Inf, Inf))
 	},	priority = 5,	ignoreInit = TRUE)
 
 	#	this will set a default to input$tableORDER so databases without Production order still work
@@ -272,7 +282,9 @@ server <- function(input, output, session) {
 				filter(Host %in% input$dataHOSTS | Host %in% input$dataEXTRASplot)
 		if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
 		hold	|>	graphPLOT()
-	},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>	bindCache(input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD())
+	},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>
+	bindCache(input$dataTAB, input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD())	|>
+	bindEvent(input$dataTABload, input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD())
 
 	observe({
 		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "plots", tab = tabPanel(seas	|>	str_SEASON(),
@@ -300,8 +312,7 @@ server <- function(input, output, session) {
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 #	Host Ranks
-
-	observe({	updateSliderInput(inputId = "ranksRANGE", value = c(0, 10))	})	|>	bindEvent(input$ranksRANGEres)
+	observe({	updateSliderInput(inputId = "ranksRANGE", value = c(-Inf, Inf))	})	|>	bindEvent(input$ranksRANGEres)
 
 	observe({
 		lapply(DATA$colHOST, function(host)	{appendTab(inputId = "ranks", tab = tabPanel(host,
@@ -338,13 +349,13 @@ server <- function(input, output, session) {
 
 
 #	Histograms
-	observe({
-		output$hostHIST	<-	renderPlot({
-			DATA$tabLONG	|>	filter(!is.na(Score))	|>
-			filter(Host %in% input$dataHOSTS) |>
-			graphHIST()
-		},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>	bindCache(input$dataHOSTS)
-	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
+	output$hostHIST	<-	renderPlot({
+		DATA$tabLONG	|>	filter(!is.na(Score))	|>
+		filter(Host %in% input$dataHOSTS) |>
+		graphHIST()
+	},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>
+	# bindCache(input$dataTAB, input$dataHOSTS)	|>
+	bindEvent(input$dataTABload, input$dataHOSTS)
 
 	observe({
 		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "histograms", tab = tabPanel(seas	|>	str_SEASON(),
@@ -375,15 +386,16 @@ server <- function(input, output, session) {
 		})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 }
-
 tableORGui	<-	function(name, season = NULL)	{
 	if (is.null(season))	season	<-	name	|>	str_replace('S', 'Season ')
 
 	tabPanel(season,	tableOutput("seriesTable")	)
 }
 
+
 ui <- function(request)	{fluidPage(
-	titlePanel("Series Scoring"),
+	# titlePanel("Series Scoring"),
+	titlePanel(uiOutput("Title"), windowTitle="Series Scoring"),
 	sidebarLayout(
 		sidebarPanel(
 			selectInput(inputId	=	"dataDB",	label	=	"Database to Load",	selectize	=	FALSE,
@@ -443,7 +455,8 @@ ui <- function(request)	{fluidPage(
 						header	=	tagList(
 							fluidRow(
 								column(3,	checkboxInput("rankNA",	label = "List Missing Episodes per Season")),
-								column(3,	sliderInput("ranksRANGE", label = "Score Range", min = 0, max = 10, value = c(0, 10), step = 0.5, width = "100%")),
+								column(2,	strong("Score Range")),
+								column(4,	sliderInput("ranksRANGE", label = NULL, min = 0, max = 10, value = c(-Inf, Inf), step = 1, width = "100%")),
 								column(2,	actionButton("ranksRANGEres", label = "Reset Range")),
 							)
 						)
@@ -462,6 +475,5 @@ ui <- function(request)	{fluidPage(
 		)
 	)
 )	}
-
 
 shinyApp(ui = ui, server = server)
