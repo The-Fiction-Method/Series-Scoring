@@ -22,7 +22,10 @@ DATA$TABLE	<-	NULL
 GRAPH$graphHEIGHT	<-	900
 GRAPH$graphRES		<-	90
 
-dataLOADtabs	=	function(name = DATA$Default)	{
+str_SEAS	<-	function(IN)	str_extract(IN, "S\\d+")
+str_SEASON	<-	function(IN)	paste0("Season ", str_extract(IN, "\\d+") |> as.numeric())
+
+dataLOADtabs	<-	function(name = DATA$Default)	{
 	con	<-	dbConnect(
 		drv		=	RSQLite::SQLite(),
 		# host	=	"127.0.0.1",
@@ -36,7 +39,7 @@ dataLOADtabs	=	function(name = DATA$Default)	{
 	dbDisconnect(con)
 }
 
-dataLOAD	=	function(name = DATA$Default, TAB)	{
+dataLOAD	<-	function(name = DATA$Default, TAB)	{
 	con	<-	dbConnect(
 		drv		=	RSQLite::SQLite(),
 		# host	=	"127.0.0.1",
@@ -62,16 +65,18 @@ dataLOAD	=	function(name = DATA$Default, TAB)	{
 	DATA$COUNThosts$IMDB_Rating	<-	FALSE
 	GRAPH$hostPAL	<-	scales:::pal_hue()(length(DATA$COUNThosts))
 
-	DATA$SEASONS	<-	hold[[	DATA$colEPIN[!(str_detect(DATA$colEPIN, "Production") | str_detect(DATA$colEPIN, "Title"))][1]	]]	|>	str_sub(1, 3)	|>	unique()
+	DATA$SEASsel	<-	DATA$colEPIN[!(str_detect(DATA$colEPIN, "Production") | str_detect(DATA$colEPIN, "Title"))][1]
+	DATA$SEASONS	<-	hold[[	DATA$SEASsel	]]	|>	str_SEAS()	|>	unique()
 }
 
 tableSTATS	<-	function(IN, SEL)	{
 	DATA$colSTAT	<-	c("Mean", "StDev", "Median", "MAD")
+	if (!isTruthy(SEL))	return(IN)
 	IN	|>	rowwise()	|>	mutate(
-		Mean	=	mean(	c_across(SEL),	na.rm = TRUE),
-		StDev	=	sd(		c_across(SEL),	na.rm = TRUE),
-		Median	=	median(	c_across(SEL),	na.rm = TRUE),
-		MAD		=	mad(	c_across(SEL),	na.rm = TRUE)
+		Mean	=	mean(	c_across(any_of(SEL)),	na.rm = TRUE),
+		StDev	=	sd(		c_across(any_of(SEL)),	na.rm = TRUE),
+		Median	=	median(	c_across(any_of(SEL)),	na.rm = TRUE),
+		MAD		=	mad(	c_across(any_of(SEL)),	na.rm = TRUE)
 	)
 }
 
@@ -93,7 +98,7 @@ tableLONG	<-	function(IN)	{
 		pivot_longer(names(select(IN, where(is.numeric))), names_to = "Host", values_to = "Score") |>
 		mutate(
 			Host	=	factor(Host, levels = names(select(IN, where(is.numeric)))),
-			Season	=	str_sub(Episode.Air, 1, 3)
+			Season	=	str_SEAS(.data[[DATA$SEASsel]])
 		)
 }
 
@@ -107,22 +112,45 @@ ranksHOST	<-	function(IN, COL = ', ')	{
 		arrange(desc(Score))
 }
 
-ranksSUMM	<-	function(IN, ROUND = 2)	{
+ranksSUMM	<-	function(IN)	{
 	bind_rows(
 		IN	|>	summarize(Count	=	sum(!is.na(Score)),
-			Score	=	mean(Score, na.rm = T)	|>	round(ROUND),
-			Titles = 'Mean')	|>	relocate(Score, .before = Count),
+			Score	=	mean(Score, na.rm = T),
+			Titles	=	'Mean')		|>	relocate(Score, .before = Count),
 		IN	|>	summarize(Count	=	sum(!is.na(Score)),
-			Score	=	sd(Score, na.rm = T)	|>	round(ROUND),
-			Titles = 'StDev')	|>	relocate(Score, .before = Count),
+			Score	=	sd(Score, na.rm = T),
+			Titles	=	'StDev')	|>	relocate(Score, .before = Count),
 		IN	|>	summarize(Count	=	sum(!is.na(Score)),
-			Score	=	median(Score, na.rm = T)	|>	round(ROUND),
-			Titles = 'Median')	|>	relocate(Score, .before = Count),
+			Score	=	median(Score, na.rm = T),
+			Titles	=	'Median')	|>	relocate(Score, .before = Count),
 		IN	|>	summarize(Count	=	sum(!is.na(Score)),
-			Score	=	mad(Score, na.rm = T)	|>	round(ROUND),
-			Titles = 'MAD')	|>	relocate(Score, .before = Count),
-		IN	|>	ranksHOST()	|>	select(!Host)
+			Score	=	mad(Score, na.rm = T),
+			Titles	=	'MAD')		|>	relocate(Score, .before = Count)
+		# IN	|>	ranksHOST()	|>	select(!Host)
 	)
+}
+
+graphPLOT	<-	function(IN)	{
+	SUMM	<-	IN	|>	group_by(Host, Season)	|>	summarize(Mean = mean(Score, na.rm = T))
+
+	ggplot(IN, aes(x = Order, group = 1)) +
+		geom_line(aes(y = Score, color = Host), linewidth = 1, na.rm = T) +
+		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",
+			labeller	=	labeller(Season = function(IN) str_SEASON(IN))
+		) +
+		scale_y_continuous(limits = c(0, 10),	expand = c(0.02, 0),	minor_breaks	=	NULL,
+			name	=	"Score",
+			breaks	=	(0:20) / 2,
+			labels	=	(0:20) / 2
+		) +
+		scale_x_discrete(minor_breaks	=	NULL,
+			labels = function(breaks){paste0(rep(c("", "\n"), length.out = length(breaks)), str_remove(breaks, "S\\d+:"))}
+		) +
+		scale_color_discrete(breaks = DATA$HOSTS, palette = GRAPH$hostPAL) +
+		theme(legend.position = "none", plot.title.position = "plot") +
+		geom_smooth(aes(y = Score, group = str_SEAS(.data[[DATA$SEASsel]]))) +
+		geom_segment(data = SUMM, aes(y = Mean, group = Season, color = Host, x = -Inf, xend = Inf), linewidth = 1) +
+		geom_label(data = SUMM, aes(x = -Inf, y = -Inf, label = paste0('Mean: ', round(Mean, 2)), group = Host, hjust = 0, vjust = 0, color = Host))
 }
 
 graphHIST	<-	function(IN)	{
@@ -142,39 +170,16 @@ graphHIST	<-	function(IN)	{
 		theme(legend.position = "none", plot.title.position = "plot")
 }
 
-graphPLOT	<-	function(IN)	{
-	SUMM	<-	IN	|>	group_by(Host, Season)	|>	summarize(Mean = mean(Score, na.rm = T), SD = sd(Score, na.rm = T), MAD = mad(Score, na.rm = T))
-
-	ggplot(IN, aes(x = Order, group = 1)) +
-		geom_line(aes(y = Score, color = Host), linewidth = 1, na.rm = T) +
-		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",
-			labeller	=	labeller(Season = function(IN) str_replace(IN, "S", "Season "))
-		) +
-		scale_y_continuous(limits = c(0, 10),	expand = c(0.02, 0),	minor_breaks	=	NULL,
-			name	=	"Score",
-			breaks	=	(0:20) / 2,
-			labels	=	(0:20) / 2
-		) +
-		scale_x_discrete(minor_breaks	=	NULL,
-			labels = function(breaks){paste0(rep(c("", "\n"), length.out = length(breaks)), str_remove(breaks, "S\\d+:"))}
-		) +
-		scale_color_discrete(breaks = DATA$HOSTS, palette = GRAPH$hostPAL) +
-		theme(legend.position = "none", plot.title.position = "plot") +
-		geom_smooth(aes(y = Score, group = str_sub(Episode.Air, 1, 3))) +
-		geom_segment(data = SUMM, aes(y = Mean, group = Season, color = Host, x = -Inf, xend = Inf), linewidth = 1) +
-		geom_label(data = SUMM, aes(x = -Inf, y = -Inf, label = paste0('Mean: ', round(Mean, 2)), group = Host, hjust = 0, vjust = 0, color = Host))
-}
-
 
 
 server <- function(input, output, session) {
 	# output$Title	=	renderUI({	titlePanel("The Landing Party - Series Scoring")	})
 
 	observeEvent(input$dataDBload,	{
-		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables", target = seas)	})
-		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"plots", target = seas)	})
-		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks", target = host)	})
-		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms", target = seas)	})
+		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables",		target = seas)	})
+		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"plots",		target = seas)	})
+		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks",		target = host)	})
+		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms",	target = seas)	})
 
 		dataLOADtabs(input$dataDB)
 		updateSelectInput(inputId = "dataTAB",	choices	=	setNames(DATA$TABS$TABS,	DATA$TABS$name)	)
@@ -227,7 +232,7 @@ server <- function(input, output, session) {
 		if (isTruthy(input$tableORDER))	{return(input$tableORDER)}	else	{return(DATA$colEPIN[!(DATA$colEPIN %in% "Title")][1])}
 	})	|>	bindEvent(input$dataTABload, input$tableORDER)
 	TABLES$tableORDseas	<-	reactive({
-		if (isTruthy(input$tableORDER) & !str_detect(input$tableORDER, "Production"))	{return(input$tableORDER)}	else	{return(DATA$colEPIN[!(DATA$colEPIN %in% "Title" | str_detect(DATA$colEPIN, "Production"))][1])}
+		if (isTruthy(input$tableORDER) & !str_detect(input$tableORDER, "Production"))	{return(input$tableORDER)}	else	{return(DATA$SEASsel)}
 	})	|>	bindEvent(input$dataTABload, input$tableORDER)
 
 #	Tables
@@ -245,7 +250,7 @@ server <- function(input, output, session) {
 	},	digits = reactive(input$roundTerm), striped = TRUE, na='')
 
 	observe({
-		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "tables", tab = tabPanel(seas	|>	str_replace('S', 'Season '),
+		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "tables", tab = tabPanel(seas	|>	str_SEASON(),
 			tagList(
 				renderTable({
 					# TABLES$tableORG()	|>	filter(	str_starts(	.data[[	str_remove(TABLES$tableORD(), "Episode.")	]],	seas))	|>
@@ -270,7 +275,7 @@ server <- function(input, output, session) {
 	},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>	bindCache(input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD())
 
 	observe({
-		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "plots", tab = tabPanel(seas	|>	str_replace('S', 'Season '),
+		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "plots", tab = tabPanel(seas	|>	str_SEASON(),
 			tagList(
 				renderPlot({
 					hold	<-	DATA$tabLONG	|>	filter(Season == seas)	|>
@@ -295,27 +300,37 @@ server <- function(input, output, session) {
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 #	Host Ranks
+
+	observe({	updateSliderInput(inputId = "ranksRANGE", value = c(0, 10))	})	|>	bindEvent(input$ranksRANGEres)
+
 	observe({
 		lapply(DATA$colHOST, function(host)	{appendTab(inputId = "ranks", tab = tabPanel(host,
 			tagList(
 				h4("All Seasons"),
 				renderTable({
-					DATA$tabLONG	|>	filter(Host == host)	|>
-						ranksSUMM(input$roundTerm)	|>	mutate(Score = paste0(Score))	|>
-					filter(!(Titles %in% c("Mean", "StDev", "Median", "MAD")) | (Titles %in% input$dataSTATS))	|>	mutate(Titles = str_replace(Titles, "StDev", "Standard Deviation"))
-
+					DATA$tabLONG	|>	filter(Host == host)	|>	ranksSUMM()	|>
+						filter(Titles %in% input$dataSTATS)	|>	mutate(Titles = str_replace(Titles, "StDev", "Standard Deviation"))
+				}, digits = reactive(input$roundTerm), striped = TRUE, na=''),
+				renderTable({
+					DATA$tabLONG	|>	filter(Host == host)	|>	ranksHOST()	|>	select(!Host)	|>	filter(between(Score, input$ranksRANGE[1], input$ranksRANGE[2]))	|>
+						mutate(Score = paste0(Score))
 				}, striped = TRUE, na=''),
+
 				lapply(DATA$SEASONS, function(seas)	{tagList(
 					hr(style = "border-color: #333"),
-					h4(str_replace(seas, 'S', 'Season ')),
+					h4(str_SEASON(seas)),
+					renderTable({
+						DATA$tabLONG	|>	filter(Host == host)	|>	filter(Season == seas)	|>
+							ranksSUMM()	|>
+							filter(Titles %in% input$dataSTATS)	|>	mutate(Titles = str_replace(Titles, "StDev", "Standard Deviation"))
+					}, digits = reactive(input$roundTerm), striped = TRUE, na=''),
 					renderTable({
 						out	<-	DATA$tabLONG	|>	filter(Host == host)	|>	filter(Season == seas)	|>
-							ranksSUMM(input$roundTerm)
+							ranksHOST()	|>	select(!Host)	|>	filter(between(Score, input$ranksRANGE[1], input$ranksRANGE[2]))
 
 						if (!input$rankNA)	{out	<-	out	|>	filter(!is.na(Score))}
-						out	|>	mutate(Score = paste0(Score))	|>
-							filter(!(Titles %in% c("Mean", "StDev", "Median", "MAD")) | (Titles %in% input$dataSTATS))	|>	mutate(Titles = str_replace(Titles, "StDev", "Standard Deviation"))
-				}, striped = TRUE, na='')
+						out	|>	mutate(Score = paste0(Score))
+					}, striped = TRUE, na=''),
 				)})
 			)
 		), select = DATA$colHOST[1] == host)}	)
@@ -332,7 +347,7 @@ server <- function(input, output, session) {
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 	observe({
-		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "histograms", tab = tabPanel(seas	|>	str_replace('S', 'Season '),
+		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "histograms", tab = tabPanel(seas	|>	str_SEASON(),
 			tagList(
 				renderPlot({
 					DATA$tabLONG	|>	filter(!is.na(Score))	|>	filter(Season == seas)	|>
@@ -386,7 +401,7 @@ ui <- function(request)	{fluidPage(
 				choiceNames	=	c("Mean", "Standard Deviation", "Median", "MAD"),	choiceValues	=	c("Mean", "StDev", "Median", "MAD"),
 				selected	=	c("Mean", "StDev")
 			),	helpText("MAD - Median Absolute Deviation"),
-			numericInput(inputId = 'roundTerm',	label = "Round to",	value = 2),
+			numericInput(inputId = 'roundTerm',	label = "Round to",	value = 2, min = 0, step = 1),
 			width	=	2
 		),
 		mainPanel(
@@ -426,7 +441,11 @@ ui <- function(request)	{fluidPage(
 				tabPanel("Host Ranks",
 					tabsetPanel(id	=	"ranks",
 						header	=	tagList(
-							checkboxInput("rankNA",	label = "List Missing Episodes per Season")
+							fluidRow(
+								column(3,	checkboxInput("rankNA",	label = "List Missing Episodes per Season")),
+								column(3,	sliderInput("ranksRANGE", label = "Score Range", min = 0, max = 10, value = c(0, 10), step = 0.5, width = "100%")),
+								column(2,	actionButton("ranksRANGEres", label = "Reset Range")),
+							)
 						)
 					)
 				),
@@ -446,4 +465,3 @@ ui <- function(request)	{fluidPage(
 
 
 shinyApp(ui = ui, server = server)
-
