@@ -304,10 +304,18 @@ server <- function(input, output, session) {
 			hold	<-	DATA$tabLONG	|>	filter(!is.na(Score))
 
 			if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
-			hold	<-	hold	|>	rename_with(function(IN) str_remove(IN, "Episode."))
 
-			hold	|>	nearPoints(input$clickPLOT, threshold = 10)	|>
+			out	<-	hold	|>	nearPoints(input$clickPLOT, threshold = 10)
+			if (nrow(out) == 0) return(NULL)
+
+			out	|>	cbind("selected_" = TRUE)	|>	select(DATA$colEPIN, selected_)	|>
+				right_join(hold)	|>	filter(selected_ & !str_detect(Host, "Rating"))	|>
+				rename_with(function(IN) str_remove(IN, "Episode."))	|>
 				select(any_of(c("Host", "Score")), (where(is.factor) & !any_of("Order")), Title)	|>	mutate(Score = paste0(Score))
+			#	weird, but necessary to have it select across all hosts, not just the one clicked on
+
+			# hold	|>	nearPoints(input$clickPLOT, threshold = 10)	|>	rename_with(function(IN) str_remove(IN, "Episode."))	|>
+				# select(any_of(c("Host", "Score")), (where(is.factor) & !any_of("Order")), Title)	|>	mutate(Score = paste0(Score))
 		})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
@@ -477,3 +485,4 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
