@@ -389,13 +389,13 @@ server <- function(input, output, session) {
 					#	near does work, but it doesn't match the bins so best to not use
 					Host	==	input$clickHIST$panelvar1,
 					)	|>
-				mutate(	Season	=	str_replace(Season, 'S', 'Season '),	Score	=	paste0(Score)	)	|>
+				mutate(	Season	=	Season |>	str_SEASON(),	Score	=	paste0(Score)	)	|>
 				select(Host, Season, Score, Count, Titles)
 		})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 }
 tableORGui	<-	function(name, season = NULL)	{
-	if (is.null(season))	season	<-	name	|>	str_replace('S', 'Season ')
+	if (is.null(season))	season	<-	name	|>	str_SEASON()
 
 	tabPanel(season,	tableOutput("seriesTable")	)
 }
@@ -451,7 +451,9 @@ ui <- function(request)	{fluidPage(
 					tabsetPanel(id	=	"plots",
 						tabPanel("All Seasons",
 							plotOutput("hostPLOT",	height = GRAPH$graphHEIGHT, click = "clickPLOT"),
-							tableOutput("clickPLOT"),
+							div(	style = "height: 200px; overflow-y: auto;",
+								tableOutput("clickPLOT")
+							),
 						),
 						header	=	tagList(
 							checkboxGroupInput(inputId = "dataEXTRASplot",	label = "Extra Scores",	inline = TRUE,	choices = NULL),
@@ -474,7 +476,9 @@ ui <- function(request)	{fluidPage(
 					tabsetPanel(id	=	"histograms",
 						tabPanel("All Seasons",
 							plotOutput("hostHIST",	height = GRAPH$graphHEIGHT, click = "clickHIST"),
-							tableOutput("clickHIST"),
+							div(	style = "height: 300px; overflow-y: auto;",
+								tableOutput("clickHIST")
+							),
 						)
 					),
 				),
@@ -485,4 +489,5 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
