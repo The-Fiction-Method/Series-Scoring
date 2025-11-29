@@ -272,7 +272,19 @@ server <- function(input, output, session) {
 					relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))
 				},	digits = reactive(input$roundTerm), striped = TRUE, na='')
 			),	value	=	seas	)
-		)}	)
+		)}	)		)}	)
+
+		appendTab(inputId = "tables", tab = tabPanel("Links",
+			tagList(
+				renderTable({
+					DATA$tabFORM	|>	tableFORM(selORDER = TABLES$tableORD())	|>
+					select(!any_of(DATA$colHOST))	|>	select(!any_of(DATA$colSTAT))	|>
+					select(!any_of(DATA$colEXTR) | any_of(input$dataEXTRAS))	|>
+					relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))	|>
+					mutate(Link	=	paste0('<a href="', Link, '" target="_blank">', Link, '</a>'))
+				},	sanitize.text.function = \(x) {x},	striped = TRUE, na='')
+			)
+		)	)
 	})	|>	bindEvent(input$dataTABload, ignoreInit = TRUE)
 
 
@@ -489,5 +501,6 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
 
