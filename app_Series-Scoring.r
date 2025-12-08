@@ -180,6 +180,7 @@ server <- function(input, output, session) {
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"plots",		target = seas)	})
 		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks",		target = host)	})
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms",	target = seas)	})
+		removeTab(inputId	=	"tables",	target	=	"Links")
 
 		dataLOADtabs(input$dataDB)
 		updateSelectInput(inputId = "dataTAB",	choices	=	setNames(DATA$TABS$TABS,	DATA$TABS$name)	)
@@ -192,6 +193,7 @@ server <- function(input, output, session) {
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"plots",		target = seas)	})
 		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks",		target = host)	})
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms",	target = seas)	})
+		removeTab(inputId	=	"tables",	target	=	"Links")
 
 		dataLOAD(input$dataDB, input$dataTAB)
 
@@ -278,6 +280,7 @@ server <- function(input, output, session) {
 			tagList(
 				renderTable({
 					DATA$tabFORM	|>	tableFORM(selORDER = TABLES$tableORD())	|>
+					filter(!is.na(Link))	|>
 					select(!any_of(DATA$colHOST))	|>	select(!any_of(DATA$colSTAT))	|>
 					select(!any_of(DATA$colEXTR) | any_of(input$dataEXTRAS))	|>
 					relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))	|>
@@ -501,6 +504,7 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
 
 
