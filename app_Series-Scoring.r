@@ -346,7 +346,7 @@ server <- function(input, output, session) {
 						filter(Titles %in% input$dataSTATS)	|>	mutate(Titles = str_replace(Titles, "StDev", "Standard Deviation"))
 				}, digits = reactive(input$roundTerm), striped = TRUE, na=''),
 				renderTable({
-					DATA$tabLONG	|>	filter(Host == host)	|>	ranksHOST()	|>	select(!Host)	|>	filter(between(Score, input$ranksRANGE[1], input$ranksRANGE[2]))	|>
+					DATA$tabLONG	|>	filter(Host == host)	|>	ranksHOST()	|>	select(!Host)	|>	filter(between(Score, input$ranksRANGE[1], input$ranksRANGE[2]) | is.na(Score))	|>
 						mutate(Score = paste0(Score))
 				}, striped = TRUE, na=''),
 
@@ -360,7 +360,7 @@ server <- function(input, output, session) {
 					}, digits = reactive(input$roundTerm), striped = TRUE, na=''),
 					renderTable({
 						out	<-	DATA$tabLONG	|>	filter(Host == host)	|>	filter(Season == seas)	|>
-							ranksHOST()	|>	select(!Host)	|>	filter(between(Score, input$ranksRANGE[1], input$ranksRANGE[2]))
+							ranksHOST()	|>	select(!Host)	|>	filter(between(Score, input$ranksRANGE[1], input$ranksRANGE[2]) | is.na(Score))
 
 						if (!input$rankNA)	{out	<-	out	|>	filter(!is.na(Score))}
 						out	|>	mutate(Score = paste0(Score))
@@ -504,6 +504,7 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
 
 
