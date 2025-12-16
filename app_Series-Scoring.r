@@ -258,7 +258,8 @@ server <- function(input, output, session) {
 			select(!any_of(DATA$colHOST) | any_of(input$dataHOSTS))	|>
 			select(!any_of(DATA$colSTAT) | any_of(input$dataSTATS))	|>
 			select(!any_of(DATA$colEXTR) | any_of(input$dataEXTRAS))	|>
-			relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))
+			relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))	|>
+			rename_with(~ str_replace(.x, fixed('.'), ' '))
 	},	digits = reactive(input$roundTerm), striped = TRUE, na='')
 
 	observe({
@@ -271,7 +272,8 @@ server <- function(input, output, session) {
 					select(!any_of(DATA$colHOST) | any_of(input$dataHOSTS))	|>
 					select(!any_of(DATA$colSTAT) | any_of(input$dataSTATS))	|>
 					select(!any_of(DATA$colEXTR) | any_of(input$dataEXTRAS))	|>
-					relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))
+					relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))	|>
+					rename_with(~ str_replace(.x, fixed('.'), ' '))
 				},	digits = reactive(input$roundTerm), striped = TRUE, na='')
 			),	value	=	seas	)
 		)}	)		)}	)
@@ -504,6 +506,7 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
 
 
