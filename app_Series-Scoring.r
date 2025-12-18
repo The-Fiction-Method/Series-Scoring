@@ -131,12 +131,21 @@ ranksSUMM	<-	function(IN)	{
 }
 
 
-graphPLOT	<-	function(IN)	{
+graphPLOT	<-	function(IN,	HOSTS	=	TRUE)	{
 	SUMM	<-	IN	|>	group_by(Host, Season)	|>	summarize(Mean = mean(Score, na.rm = T))
 
-	ggplot(IN, aes(x = Order, group = 1)) +
-		geom_line(aes(y = Score, color = Host), linewidth = 1, na.rm = T) +
-		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",
+	facetHOST	<-	list(
+		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",	labeller = labeller(Season = function(IN) str_SEASON(IN))),
+		geom_segment(data = SUMM, aes(y = Mean, group = Season, color = Host, x = -Inf, xend = Inf), linewidth = 1),
+		geom_label(data = SUMM, aes(x = -Inf, y = -Inf, label = paste0('Mean: ', round(Mean, 2)), group = Host, hjust = 0, vjust = 0, color = Host))
+	)
+
+	out	<-	ggplot(IN, aes(x = Order, group = 1)) +
+		geom_line(aes(y = Score, color = Host, group = Host), linewidth = 1, na.rm = T) +
+		# facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",
+			# labeller	=	labeller(Season = function(IN) str_SEASON(IN))
+		# ) +
+		facet_grid(cols = vars(Season),	switch = "y",	scales = "free_x",
 			labeller	=	labeller(Season = function(IN) str_SEASON(IN))
 		) +
 		scale_y_continuous(limits = DATA$scoreRANG,	expand = c(0.02, 0),	minor_breaks	=	NULL,
@@ -149,9 +158,12 @@ graphPLOT	<-	function(IN)	{
 		) +
 		scale_color_discrete(breaks = DATA$HOSTS, palette = GRAPH$hostPAL) +
 		theme(legend.position = "none", plot.title.position = "plot") +
-		geom_smooth(aes(y = Score, group = str_SEAS(.data[[DATA$SEASsel]]))) +
-		geom_segment(data = SUMM, aes(y = Mean, group = Season, color = Host, x = -Inf, xend = Inf), linewidth = 1) +
-		geom_label(data = SUMM, aes(x = -Inf, y = -Inf, label = paste0('Mean: ', round(Mean, 2)), group = Host, hjust = 0, vjust = 0, color = Host))
+		geom_smooth(aes(y = Score, group = str_SEAS(.data[[DATA$SEASsel]])))
+		# geom_segment(data = SUMM, aes(y = Mean, group = Season, color = Host, x = -Inf, xend = Inf), linewidth = 1) +
+		# geom_label(data = SUMM, aes(x = -Inf, y = -Inf, label = paste0('Mean: ', round(Mean, 2)), group = Host, hjust = 0, vjust = 0, color = Host))
+
+	if (HOSTS)	return(out + facetHOST)
+	out
 }
 
 graphHIST	<-	function(IN)	{
@@ -276,7 +288,7 @@ server <- function(input, output, session) {
 					rename_with(~ str_replace(.x, fixed('.'), ' '))
 				},	digits = reactive(input$roundTerm), striped = TRUE, na='')
 			),	value	=	seas	)
-		)}	)		)}	)
+		)}	)
 
 		appendTab(inputId = "tables", tab = tabPanel("Links",
 			tagList(
@@ -298,10 +310,11 @@ server <- function(input, output, session) {
 		hold	<-	DATA$tabLONG	|>
 				filter(Host %in% input$dataHOSTS | Host %in% input$dataEXTRASplot)
 		if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
-		hold	|>	graphPLOT()
+
+		hold	|>	graphPLOT(input$dataHOSTSplot)
 	},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES)	|>
-	bindCache(input$dataTAB, input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD())	|>
-	bindEvent(input$dataTABload, input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD())
+	bindCache(input$dataTAB, input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD(), input$dataHOSTSplot)	|>
+	bindEvent(input$dataTABload, input$dataHOSTS, input$dataEXTRASplot, TABLES$tableORD(), input$dataHOSTSplot)
 
 	observe({
 		lapply(DATA$SEASONS, function(seas)	{appendTab(inputId = "plots", tab = tabPanel(seas	|>	str_SEASON(),
@@ -310,7 +323,7 @@ server <- function(input, output, session) {
 					hold	<-	DATA$tabLONG	|>	filter(Season == seas)	|>
 							filter(Host %in% input$dataHOSTS | Host %in% input$dataEXTRASplot)
 					if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
-					hold	|>	graphPLOT()
+					hold	|>	graphPLOT(input$dataHOSTSplot)
 				},	height = GRAPH$graphHEIGHT,	res = GRAPH$graphRES),
 			),	value	=	seas	)
 		)}	)
@@ -473,7 +486,10 @@ ui <- function(request)	{fluidPage(
 							),
 						),
 						header	=	tagList(
-							checkboxGroupInput(inputId = "dataEXTRASplot",	label = "Extra Scores",	inline = TRUE,	choices = NULL),
+							fluidRow(
+								column(4,	checkboxInput(inputId = "dataHOSTSplot",	label = "Separate Hosts",	value = TRUE	)	),
+								column(2,	checkboxGroupInput(inputId = "dataEXTRASplot",	label = "Extra Scores",	inline = TRUE,	choices = NULL)),
+							),
 						),
 					),
 				),
@@ -506,9 +522,3 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
-
-
-
-
-
-
