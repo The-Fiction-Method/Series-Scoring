@@ -32,7 +32,7 @@ dataLOADtabs	<-	function(name = DATA$Default)	{
 		# port	=	3306,
 		dbname	=	name
 	)
-	DATA$ORDER	<-	dbReadTable(con, "_Order_Series")	|>	mutate(	TABS	=	paste0('@', str_replace_all(name, ' ', '_')))
+	DATA$ORDER	<-	dbReadTable(con, "_Order_Series")	|>	mutate(	TABS	=	paste0('@', str_remove_all(str_replace_all(name, ' ', '_'), ':')))
 	TABS	<-	dbListTables(con)[dbListTables(con)	|>	str_starts('@')]
 	DATA$TABS	<-	(data.frame(TABS) |> inner_join(DATA$ORDER))	|>	arrange(sort)
 
@@ -522,3 +522,4 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
