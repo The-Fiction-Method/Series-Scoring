@@ -17,6 +17,7 @@ TABLES	<-	new.env()
 GRAPH	<-	new.env()
 FILES	<-	list.files(pattern = "*.db")
 DATA$Default	<-	"Series Scoring.db"
+DBcontrol	<-	TRUE
 DATA$TABS	<-	NULL
 DATA$TABLE	<-	NULL
 GRAPH$graphHEIGHT	<-	900
@@ -38,6 +39,7 @@ dataLOADtabs	<-	function(name = DATA$Default)	{
 
 	dbDisconnect(con)
 }
+if (!DBcontrol)	dataLOADtabs(DATA$Default)
 
 dataLOAD	<-	function(name = DATA$Default, TAB)	{
 	con	<-	dbConnect(
@@ -187,6 +189,11 @@ graphHIST	<-	function(IN)	{
 server <- function(input, output, session) {
 	output$Title	=	renderUI({	titlePanel("Series Scoring")	})
 
+	DATA$dbinfo	<-	reactive({
+		if (isTruthy(input$dataDB))	return(input$dataDB)
+		DATA$Default
+	})
+
 	observeEvent(input$dataDBload,	{
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables",		target = seas)	})
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"plots",		target = seas)	})
@@ -194,10 +201,10 @@ server <- function(input, output, session) {
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms",	target = seas)	})
 		removeTab(inputId	=	"tables",	target	=	"Links")
 
-		dataLOADtabs(input$dataDB)
+		dataLOADtabs(DATA$dbinfo())
 		updateSelectInput(inputId = "dataTAB",	choices	=	setNames(DATA$TABS$TABS,	DATA$TABS$name)	)
 
-		output$Title	=	renderUI({	titlePanel(paste0("Series Scoring - ", str_remove(input$dataDB, '.db')))	})
+		output$Title	=	renderUI({	titlePanel(paste0("Series Scoring - ", str_remove(DATA$dbinfo(), '.db')))	})
 	},	priority	=	10)
 
 	observeEvent(input$dataTABload,	{
@@ -207,7 +214,7 @@ server <- function(input, output, session) {
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms",	target = seas)	})
 		removeTab(inputId	=	"tables",	target	=	"Links")
 
-		dataLOAD(input$dataDB, input$dataTAB)
+		dataLOAD(DATA$dbinfo(), input$dataTAB)
 
 		output$ordCON	<-	renderUI({
 			if (DATA$exiPRD)	{
@@ -436,10 +443,12 @@ ui <- function(request)	{fluidPage(
 	titlePanel(uiOutput("Title"), windowTitle="Series Scoring"),
 	sidebarLayout(
 		sidebarPanel(
-			selectInput(inputId	=	"dataDB",	label	=	"Database to Load",	selectize	=	FALSE,
-				choices	=	setNames(FILES,	gsub(".db", "", FILES)),	selected	=	DATA$Default
+			if (DBcontrol)	tagList(
+				selectInput(inputId	=	"dataDB",	label	=	"Database to Load",	selectize	=	FALSE,
+					choices	=	setNames(FILES,	gsub(".db", "", FILES)),	selected	=	DATA$Default
+				),
+				actionButton(inputId	=	"dataDBload",	label	=	"Load Selected Database")
 			),
-			actionButton(inputId	=	"dataDBload",	label	=	"Load Selected Database"),
 			selectInput(inputId	=	"dataTAB",	label	=	"Table to Load",	selectize	=	FALSE,
 				choices	=	setNames(DATA$TABS$TABS,	DATA$TABS$name)
 			),
@@ -522,4 +531,3 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
-
