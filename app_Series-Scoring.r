@@ -137,7 +137,7 @@ graphPLOT	<-	function(IN,	HOSTS	=	TRUE)	{
 	SUMM	<-	IN	|>	group_by(Host, Season)	|>	summarize(Mean = mean(Score, na.rm = T))
 
 	facetHOST	<-	list(
-		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",	labeller = labeller(Season = function(IN) str_SEASON(IN))),
+		facet_grid(rows = vars(Host	|>	str_replace_all(fixed('.'), ' ')), cols = vars(Season),	switch = "y",	scales = "free_x",	labeller = labeller(Season = function(IN) str_SEASON(IN))),
 		geom_segment(data = SUMM, aes(y = Mean, group = Season, color = Host, x = -Inf, xend = Inf), linewidth = 1),
 		geom_label(data = SUMM, aes(x = -Inf, y = -Inf, label = paste0('Mean: ', round(Mean, 2)), group = Host, hjust = 0, vjust = 0, color = Host))
 	)
@@ -180,7 +180,7 @@ graphHIST	<-	function(IN)	{
 			name	=	"Count",
 			breaks	=	(1:200) * 2
 		) +
-		facet_wrap(vars(Host), axes = "all") +
+		facet_wrap(vars(Host	|>	str_replace_all(fixed('.'), ' ')), axes = "all") +
 		scale_fill_discrete(breaks = DATA$HOSTS, palette = GRAPH$hostPAL) +
 		theme(legend.position = "none", plot.title.position = "plot")
 }
@@ -197,7 +197,7 @@ server <- function(input, output, session) {
 	observeEvent(input$dataDBload,	{
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables",		target = seas)	})
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"plots",		target = seas)	})
-		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks",		target = host)	})
+		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks",		target = host	|>	str_replace_all(fixed('.'), ' '))	})
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms",	target = seas)	})
 		removeTab(inputId	=	"tables",	target	=	"Links")
 
@@ -210,7 +210,7 @@ server <- function(input, output, session) {
 	observeEvent(input$dataTABload,	{
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"tables",		target = seas)	})
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"plots",		target = seas)	})
-		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks",		target = host)	})
+		lapply(DATA$colHOST, function(host)	{	removeTab(inputId	=	"ranks",		target = host	|>	str_replace_all(fixed('.'), ' '))	})
 		lapply(DATA$SEASONS, function(seas)	{	removeTab(inputId	=	"histograms",	target = seas)	})
 		removeTab(inputId	=	"tables",	target	=	"Links")
 
@@ -234,7 +234,7 @@ server <- function(input, output, session) {
 
 		updateCheckboxGroupInput(inputId = "dataEXTRAS",	inline = TRUE,
 			choiceValues	=	DATA$colEXTR,
-			choiceNames		=	DATA$colEXTR	|>	str_replace(fixed('.'), ' ')
+			choiceNames		=	DATA$colEXTR	|>	str_replace_all(fixed('.'), ' ')
 		)
 		updateCheckboxGroupInput(inputId = "dataEXTRASplot",	inline = TRUE,	choices	= DATA$colEXTR[str_detect(DATA$colEXTR, "Rating")]	)
 		if (is.null(DATA$colEXTR))	{
@@ -278,7 +278,7 @@ server <- function(input, output, session) {
 			select(!any_of(DATA$colSTAT) | any_of(input$dataSTATS))	|>
 			select(!any_of(DATA$colEXTR) | any_of(input$dataEXTRAS))	|>
 			relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))	|>
-			rename_with(~ str_replace(.x, fixed('.'), ' '))
+			rename_with(~ str_replace_all(.x, fixed('.'), ' '))
 	},	digits = reactive(input$roundTerm), striped = TRUE, na='')
 
 	observe({
@@ -292,7 +292,7 @@ server <- function(input, output, session) {
 					select(!any_of(DATA$colSTAT) | any_of(input$dataSTATS))	|>
 					select(!any_of(DATA$colEXTR) | any_of(input$dataEXTRAS))	|>
 					relocate(where(is.factor), Title, !where(is.numeric), where(is.numeric))	|>
-					rename_with(~ str_replace(.x, fixed('.'), ' '))
+					rename_with(~ str_replace_all(.x, fixed('.'), ' '))
 				},	digits = reactive(input$roundTerm), striped = TRUE, na='')
 			),	value	=	seas	)
 		)}	)
@@ -360,7 +360,7 @@ server <- function(input, output, session) {
 	observe({	updateSliderInput(inputId = "ranksRANGE", value = c(-Inf, Inf))	})	|>	bindEvent(input$ranksRANGEres)
 
 	observe({
-		lapply(DATA$colHOST, function(host)	{appendTab(inputId = "ranks", tab = tabPanel(host,
+		lapply(DATA$colHOST, function(host)	{appendTab(inputId = "ranks", tab = tabPanel(host	|>	str_replace_all(fixed('.'), ' '),
 			tagList(
 				h4("All Seasons"),
 				renderTable({
