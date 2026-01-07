@@ -453,13 +453,11 @@ ui <- function(request)	{fluidPage(
 				choices	=	setNames(DATA$TABS$TABS,	DATA$TABS$name)
 			),
 			actionButton(inputId	=	"dataTABload",	label	=	"Load Selected Table"),
-			checkboxGroupInput(inputId	=	"dataHOSTS",	label	=	"Hosts",
-				choices	=	NULL
-			),
 			checkboxGroupInput(inputId	=	"dataSTATS",	label	=	"Statistics ",
 				choiceNames	=	c("Mean", "Standard Deviation", "Median", "MAD"),	choiceValues	=	c("Mean", "StDev", "Median", "MAD"),
 				selected	=	c("Mean", "StDev")
 			),	helpText("MAD - Median Absolute Deviation"),
+			checkboxGroupInput(inputId	=	"dataHOSTS",	label	=	"Hosts",	choices	=	NULL	),
 			numericInput(inputId = 'roundTerm',	label = "Round to",	value = 2, min = 0, step = 1),
 			width	=	2
 		),
@@ -531,3 +529,4 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
