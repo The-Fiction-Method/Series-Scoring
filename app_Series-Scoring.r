@@ -48,7 +48,7 @@ dataLOAD	<-	function(name = DATA$Default, TAB)	{
 		# port	=	3306,
 		dbname	=	name
 	)
-	hold	<-	dbReadTable(con, TAB)	|>	tibble()
+	hold	<-	dbReadTable(con, TAB, check.names = FALSE)	|>	tibble()
 	dbDisconnect(con)
 	hold	<-	hold	|> mutate(across(contains("Episode"), as.factor))
 
@@ -63,7 +63,7 @@ dataLOAD	<-	function(name = DATA$Default, TAB)	{
 	DATA$colEXTR	<-	hold	|>	select((where(is.character) | contains("Rating")) & !(matches("Title") | matches("Link")))	|>	names()
 
 	COUNTepisodes	<-	sum(!is.na(hold$Link))
-	DATA$COUNThosts	<-	(hold	|>	summarize(across(where(is.numeric), ~ sum(!is.na(.))))	>=	COUNTepisodes/10)	|>	data.frame()
+	DATA$COUNThosts	<-	(hold	|>	summarize(across(where(is.numeric), ~ sum(!is.na(.))))	>=	COUNTepisodes/10)	|>	data.frame(check.names = FALSE)
 	DATA$COUNThosts$IMDB_Rating	<-	FALSE
 	GRAPH$hostPAL	<-	scales:::pal_hue()(length(DATA$COUNThosts))
 
@@ -137,7 +137,7 @@ graphPLOT	<-	function(IN,	HOSTS	=	TRUE)	{
 	SUMM	<-	IN	|>	group_by(Host, Season)	|>	summarize(Mean = mean(Score, na.rm = T))
 
 	facetHOST	<-	list(
-		facet_grid(rows = vars(Host	|>	str_replace_all(fixed('.'), ' ')), cols = vars(Season),	switch = "y",	scales = "free_x",	labeller = labeller(Season = function(IN) str_SEASON(IN))),
+		facet_grid(rows = vars(Host), cols = vars(Season),	switch = "y",	scales = "free_x",	labeller = labeller(Season = function(IN) str_SEASON(IN))),
 		geom_segment(data = SUMM, aes(y = Mean, group = Season, color = Host, x = -Inf, xend = Inf), linewidth = 1),
 		geom_label(data = SUMM, aes(x = -Inf, y = -Inf, label = paste0('Mean: ', round(Mean, 2)), group = Host, hjust = 0, vjust = 0, color = Host))
 	)
@@ -180,7 +180,7 @@ graphHIST	<-	function(IN)	{
 			name	=	"Count",
 			breaks	=	(1:200) * 2
 		) +
-		facet_wrap(vars(Host	|>	str_replace_all(fixed('.'), ' ')), axes = "all") +
+		facet_wrap(vars(Host), axes = "all") +
 		scale_fill_discrete(breaks = DATA$HOSTS, palette = GRAPH$hostPAL) +
 		theme(legend.position = "none", plot.title.position = "plot")
 }
@@ -529,4 +529,5 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
