@@ -18,6 +18,7 @@ GRAPH	<-	new.env()
 FILES	<-	list.files(pattern = "*.db")
 DATA$Default	<-	"Series Scoring.db"
 DBcontrol	<-	TRUE
+countHOST	<-	7	#	based on this number, the host selection UI will move from nearer the top to the bottom of the UI
 DATA$TABS	<-	NULL
 DATA$TABLE	<-	NULL
 GRAPH$graphHEIGHT	<-	900
@@ -231,6 +232,16 @@ server <- function(input, output, session) {
 		}
 
 		updateCheckboxGroupInput(inputId = "dataHOSTS",		choices	= DATA$colHOST,	selected = names(DATA$COUNThosts)[unlist(DATA$COUNThosts)]	)
+		output$hostSELtop	<-	renderUI({
+			if (length(DATA$colHOST)	>	countHOST)	return(NULL)
+			checkboxGroupInput(inputId	=	"dataHOSTS",	label	=	"Hosts",
+				choices	= DATA$colHOST,	selected = names(DATA$COUNThosts)[unlist(DATA$COUNThosts)]	)
+		})
+		output$hostSELbot	<-	renderUI({
+			if (length(DATA$colHOST)	<=	countHOST)	return(NULL)
+			checkboxGroupInput(inputId	=	"dataHOSTS",	label	=	"Hosts",
+				choices	= DATA$colHOST,	selected = names(DATA$COUNThosts)[unlist(DATA$COUNThosts)]	)
+		})
 
 		updateCheckboxGroupInput(inputId = "dataEXTRAS",	inline = TRUE,
 			choiceValues	=	DATA$colEXTR,
@@ -453,12 +464,14 @@ ui <- function(request)	{fluidPage(
 				choices	=	setNames(DATA$TABS$TABS,	DATA$TABS$name)
 			),
 			actionButton(inputId	=	"dataTABload",	label	=	"Load Selected Table"),
+			uiOutput("hostSELtop"),
 			checkboxGroupInput(inputId	=	"dataSTATS",	label	=	"Statistics ",
 				choiceNames	=	c("Mean", "Standard Deviation", "Median", "MAD"),	choiceValues	=	c("Mean", "StDev", "Median", "MAD"),
 				selected	=	c("Mean", "StDev")
 			),	helpText("MAD - Median Absolute Deviation"),
-			checkboxGroupInput(inputId	=	"dataHOSTS",	label	=	"Hosts",	choices	=	NULL	),
 			numericInput(inputId = 'roundTerm',	label = "Round to",	value = 2, min = 0, step = 1),
+			# checkboxGroupInput(inputId	=	"dataHOSTS",	label	=	"Hosts",	choices	=	NULL),
+			uiOutput("hostSELbot"),
 			width	=	2
 		),
 		mainPanel(
@@ -529,5 +542,6 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
 
