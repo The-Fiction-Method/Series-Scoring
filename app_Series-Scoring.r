@@ -348,23 +348,25 @@ server <- function(input, output, session) {
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 	observe({
-		output$clickPLOT	<-	renderTable({
-			hold	<-	DATA$tabLONG	|>	filter(!is.na(Score))
+		# output$clickPLOT	<-
+		output$clickPLOTtall	<-	renderUI({	div(style = paste0("height: ", 35 * (length(DATA$colHOST) + 1), "px; overflow-y: auto;"),
+			renderTable({
+				hold	<-	DATA$tabLONG	|>	filter(!is.na(Score))
 
-			if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
+				if (DATA$exiPRD)	hold	<-	hold	|>	mutate(Order = .data[[TABLES$tableORD()]])	|>	arrange(Order)
 
-			out	<-	hold	|>	nearPoints(input$clickPLOT, threshold = 10)
-			if (nrow(out) == 0) return(NULL)
+				out	<-	hold	|>	nearPoints(input$clickPLOT, threshold = 10)
+				if (nrow(out) == 0) return(NULL)
 
-			out	|>	cbind("selected_" = TRUE)	|>	select(DATA$colEPIN, selected_)	|>
-				right_join(hold)	|>	filter(selected_ & !str_detect(Host, "Rating"))	|>
-				rename_with(function(IN) str_remove(IN, "Episode."))	|>
-				select(any_of(c("Host", "Score")), (where(is.factor) & !any_of("Order")), Title)	|>	mutate(Score = paste0(Score))
-			#	weird, but necessary to have it select across all hosts, not just the one clicked on
+				out	|>	cbind("selected_" = TRUE)	|>	select(DATA$colEPIN, selected_)	|>
+					right_join(hold)	|>	filter(selected_ & !str_detect(Host, "Rating"))	|>
+					rename_with(function(IN) str_remove(IN, "Episode."))	|>
+					select(any_of(c("Host", "Score")), (where(is.factor) & !any_of("Order")), Title)	|>	mutate(Score = paste0(Score))
+				#	weird, but necessary to have it select across all hosts, not just the one clicked on
 
-			# hold	|>	nearPoints(input$clickPLOT, threshold = 10)	|>	rename_with(function(IN) str_remove(IN, "Episode."))	|>
-				# select(any_of(c("Host", "Score")), (where(is.factor) & !any_of("Order")), Title)	|>	mutate(Score = paste0(Score))
-		})
+				# hold	|>	nearPoints(input$clickPLOT, threshold = 10)	|>	rename_with(function(IN) str_remove(IN, "Episode."))	|>
+					# select(any_of(c("Host", "Score")), (where(is.factor) & !any_of("Order")), Title)	|>	mutate(Score = paste0(Score))
+			})	)	})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 #	Host Ranks
@@ -426,20 +428,22 @@ server <- function(input, output, session) {
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 	observe({
-		output$clickHIST	<-	renderTable({	req(input$clickHIST)
-			roughHIST	<-	(input$clickHIST$y + 0.25)	|>	round(1)
+		# output$clickHIST	<-	renderTable({	req(input$clickHIST)
+		output$clickHISTtall	<-	renderUI({	div(style = paste0("height: ", 51 * (length(DATA$SEASONS) + 1), "px; overflow-y: auto;"), 
+			renderTable({	req(input$clickHIST)
+				roughHIST	<-	(input$clickHIST$y + 0.25)	|>	round(1)
 
-			DATA$tabLONG	|>	group_by(Season)	|>
-				ranksHOST()	|>
-				filter(
-					Score	|>	between(roughHIST - 0.25, roughHIST + 0.25),
-					# Score	|>	near(input$clickHIST$y + 0.25, tol = 0.25),
-					#	near does work, but it doesn't match the bins so best to not use
-					Host	==	input$clickHIST$panelvar1,
-					)	|>
-				mutate(	Season	=	Season |>	str_SEASON(),	Score	=	paste0(Score)	)	|>
-				select(Host, Season, Score, Count, Titles)
-		})
+				DATA$tabLONG	|>	group_by(Season)	|>
+					ranksHOST()	|>
+					filter(
+						Score	|>	between(roughHIST - 0.25, roughHIST + 0.25),
+						# Score	|>	near(input$clickHIST$y + 0.25, tol = 0.25),
+						#	near does work, but it doesn't match the bins so best to not use
+						Host	==	input$clickHIST$panelvar1,
+						)	|>
+					mutate(	Season	=	Season |>	str_SEASON(),	Score	=	paste0(Score)	)	|>
+					select(Host, Season, Score, Count, Titles)
+			})	)	})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 }
 tableORGui	<-	function(name, season = NULL)	{
@@ -501,9 +505,10 @@ ui <- function(request)	{fluidPage(
 					tabsetPanel(id	=	"plots",
 						tabPanel("All Seasons",
 							plotOutput("hostPLOT",	height = GRAPH$graphHEIGHT, click = "clickPLOT"),
-							div(	style = "height: 200px; overflow-y: auto;",
-								tableOutput("clickPLOT")
-							),
+							# div(	style = "height: 216px; overflow-y: auto;",
+								# tableOutput("clickPLOT")
+							# ),
+							uiOutput("clickPLOTtall"),
 						),
 						header	=	tagList(
 							fluidRow(
@@ -529,9 +534,10 @@ ui <- function(request)	{fluidPage(
 					tabsetPanel(id	=	"histograms",
 						tabPanel("All Seasons",
 							plotOutput("hostHIST",	height = GRAPH$graphHEIGHT, click = "clickHIST"),
-							div(	style = "height: 300px; overflow-y: auto;",
-								tableOutput("clickHIST")
-							),
+							# div(	style = "height: 300px; overflow-y: auto;",
+								# tableOutput("clickHIST")
+							# ),
+							uiOutput("clickHISTtall"),
 						)
 					),
 				),
@@ -542,6 +548,7 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
 
 
