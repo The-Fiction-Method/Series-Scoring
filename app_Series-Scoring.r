@@ -431,12 +431,12 @@ server <- function(input, output, session) {
 		# output$clickHIST	<-	renderTable({	req(input$clickHIST)
 		output$clickHISTtall	<-	renderUI({	div(style = paste0("height: ", 51 * (length(DATA$SEASONS) + 1), "px; overflow-y: auto;"), 
 			renderTable({	req(input$clickHIST)
-				roughHIST	<-	(input$clickHIST$y + 0.25)	|>	round(1)
+				roughHIST	<-	(input$clickHIST$y + DATA$scoreSTEP/2)	|>	round(1)
 
 				DATA$tabLONG	|>	group_by(Season)	|>
 					ranksHOST()	|>
 					filter(
-						Score	|>	between(roughHIST - 0.25, roughHIST + 0.25),
+						Score	|>	between(roughHIST - DATA$scoreSTEP/2, roughHIST + DATA$scoreSTEP/2),
 						# Score	|>	near(input$clickHIST$y + 0.25, tol = 0.25),
 						#	near does work, but it doesn't match the bins so best to not use
 						Host	==	input$clickHIST$panelvar1,
@@ -548,6 +548,7 @@ ui <- function(request)	{fluidPage(
 )	}
 
 shinyApp(ui = ui, server = server)
+
 
 
 
