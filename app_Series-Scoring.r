@@ -3,9 +3,10 @@ if (!require(shiny))	install.packages("shiny");		library(shiny)
 if (!require(DBI))		install.packages("DBI");		library(DBI)
 if (!require(stringr))	install.packages("stringr");	library(stringr)
 if (!require(dplyr))	install.packages("dplyr");		library(dplyr)
-if (!require(dplyr))	install.packages("dplyr");		library(dplyr)
 if (!require(tidyr))	install.packages("tidyr");		library(tidyr)
 if (!require(ggplot2))	install.packages("ggplot2");	library(ggplot2)
+if (!require(purrr))	install.packages("purrr");		library(purrr)
+if (!require(tibble))	install.packages("tibble");		library(tibble)
 
 if (interactive())	{
 	# setwd("CURRENT_DIR")
@@ -71,7 +72,6 @@ dataLOAD	<-	function(name = DATA$Default, TAB)	{
 	DATA$SEASsel	<-	DATA$colEPIN[!(str_detect(DATA$colEPIN, "Production") | str_detect(DATA$colEPIN, "Title"))][1]
 	DATA$SEASONS	<-	hold[[	DATA$SEASsel	]]	|>	str_SEAS()	|>	unique()
 }
-
 tableSTATS	<-	function(IN, SEL)	{
 	DATA$colSTAT	<-	c("Mean", "StDev", "Median", "MAD")
 	if (!isTruthy(SEL))	return(IN)
@@ -131,6 +131,63 @@ ranksSUMM	<-	function(IN)	{
 			Titles	=	'MAD')		|>	relocate(Score, .before = Count)
 		# IN	|>	ranksHOST()	|>	select(!Host)
 	)
+}
+
+
+tableDIFF	<-	function(IN)	{
+	scoresALL	<-	IN	|>	select(where(is.numeric) |	contains("Rating"))	|>	names()
+	pairs	<-	combn(scoresALL, 2)
+
+	within(IN	|>	column_to_rownames("Title"),
+		out	<-	map(1:ncol(pairs), \(x) IN[pairs[1, x]] - IN[pairs[2, x]])	|>
+					as.data.frame()	|>	abs()	|>
+					setNames(paste(pairs[1, ], pairs[2, ], sep="-"))
+		)	|>	rownames_to_column("Title")	|>	select(DATA$colEPIN, out, Link)	|>	unnest(out)	|>
+		mutate(Season	=	str_SEAS(.data[[DATA$SEASsel]]))
+}
+
+tableFORMdiff	<-	function(IN, selORDER = NULL)	{
+	if (isTruthy(selORDER))	out	<-	IN	|>	arrange(.data[[selORDER]])
+	out
+}
+
+tableDIFFstats	<-	function(IN)	{
+	pairs	<-	IN	|>	select(where(is.numeric))	|>	names()
+
+	IN	|>	mutate(Season = "All")	|>	group_by(Season)	|>
+		reframe(	across(all_of(pairs),	list(
+			"Mean"		=	\(x) mean(x, na.rm=T),
+			"StDev"		=	\(x) sd(x, na.rm=T),
+			"Median"	=	\(x) median(x, na.rm=T),
+			"MAD"		=	\(x) mad(x, na.rm=T)
+			)
+		)	)	|>
+		pivot_longer(cols = -1, names_to = c(".value", "Stat"), names_pattern = "(.*)_(Mean|StDev|Median|MAD)")	|>
+		bind_rows(IN	|>	group_by(Season)	|>
+		reframe(	across(all_of(pairs),	list(
+			"Mean"		=	\(x) mean(x, na.rm=T),
+			"StDev"		=	\(x) sd(x, na.rm=T),
+			"Median"	=	\(x) median(x, na.rm=T),
+			"MAD"		=	\(x) mad(x, na.rm=T)
+			)
+		)	)	|>	pivot_longer(cols = -1, names_to = c(".value", "Stat"), names_pattern = "(.*)_(Mean|StDev|Median|MAD)")
+		)	|>	mutate(Season = ifelse(str_detect(Season, 'S\\d+'), str_SEAS(Season), Season))
+}
+
+ranksDIFF	<-	function(IN, SEAS = FALSE, COL = ', ')	{
+	out	<-	IN	|>	filter(!is.na(Link)) |>
+		select(!where(is.character) | Title)	|>
+		pivot_longer(names(select(IN, where(is.numeric))), names_to = "Hosts", values_to = "Difference")	|>
+		mutate(
+				Host	=	factor(Hosts, levels = names(select(IN, where(is.numeric)))),
+				Season	=	str_SEAS(.data[[DATA$SEASsel]])
+			)	|>
+		group_by(Difference, Hosts, .add = TRUE)
+
+	if	(SEAS)	out	<- out	|>	group_by(Season, .add = TRUE)
+
+	out	|>	reframe(	Count	=	n(),
+						Titles	=	paste(paste0('"', Title, '"'), collapse = COL)	)
 }
 
 
@@ -252,6 +309,16 @@ server <- function(input, output, session) {
 			updateCheckboxGroupInput(inputId = "dataEXTRAS",		label = '')
 			updateCheckboxGroupInput(inputId = "dataEXTRASplot",	label = '')
 		}
+
+		updateCheckboxGroupInput(inputId = "diffSCORES",	inline = TRUE,
+			choices		=	DATA$TABLE	|>	select(where(is.numeric) |	contains("Rating"))	|>	names(),
+			selected	=	names(DATA$COUNThosts)[unlist(DATA$COUNThosts)]
+		)
+		updateCheckboxGroupInput(inputId = "diffSEASON",	inline = TRUE,
+			choiceNames		=	DATA$SEASONS	|>	str_SEASON(),
+			choiceValues	=	DATA$SEASONS	|>	str_SEAS(),
+			selected	=	DATA$SEASONS	|>	str_SEAS()
+		)
 	},	priority	=	10)
 
 	observeEvent(list(input$dataHOSTS, input$dataTABload), {
@@ -267,6 +334,9 @@ server <- function(input, output, session) {
 
 		DATA$scoreRANG	<-	holdSCORE	|>	rbind(0)	|>	range(na.rm = TRUE)#	|>	reactive()
 		updateSliderInput(inputId = "ranksRANGE",	min = DATA$scoreRANG[1],	max = DATA$scoreRANG[2],	value = c(-Inf, Inf))
+
+		updateSliderInput(inputId = "diffsRANGE",	step = DATA$scoreSTEP)
+		updateSliderInput(inputId = "diffsRANGE",	max = DATA$scoreRANG[2],	value = c(-Inf, Inf))
 	},	priority = 5,	ignoreInit = TRUE)
 
 	#	this will set a default to input$tableORDER so databases without Production order still work
@@ -428,8 +498,7 @@ server <- function(input, output, session) {
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
 
 	observe({
-		# output$clickHIST	<-	renderTable({	req(input$clickHIST)
-		output$clickHISTtall	<-	renderUI({	div(style = paste0("height: ", 51 * (length(DATA$SEASONS) + 1), "px; overflow-y: auto;"), 
+		output$clickHISTtall	<-	renderUI({	div(style = paste0("height: ", 51 * (length(DATA$SEASONS) + 1), "px; overflow-y: auto;"),
 			renderTable({	req(input$clickHIST)
 				roughHIST	<-	(input$clickHIST$y + DATA$scoreSTEP/2)	|>	round(1)
 
@@ -445,11 +514,68 @@ server <- function(input, output, session) {
 					select(Host, Season, Score, Count, Titles)
 			})	)	})
 	})	|>	bindEvent(input$dataTABload,	ignoreInit = TRUE)
-}
-tableORGui	<-	function(name, season = NULL)	{
-	if (is.null(season))	season	<-	name	|>	str_SEASON()
 
-	tabPanel(season,	tableOutput("seriesTable")	)
+
+#	Differences
+	scoresSEL	<-	reactive({
+		hold	<-	DATA$TABLE	|>	select(where(is.numeric) |	contains("Rating"))	|>	names()
+		holdTF	<-	hold	%in%	input$diffSCORES
+		list(
+			hold[holdTF],
+			hold[!holdTF]
+		)
+	})
+
+	TABLES$tableDIFF	<-	reactive({
+		req(DATA$TABLE)
+		DATA$TABLE	|>	tableDIFF()	|>	tableFORMdiff(selORDER = TABLES$tableORD())
+	})	|>	bindEvent(input$dataTABload, TABLES$tableORD())
+
+	output$diffsTable	=	renderTable({
+		req(TABLES$tableDIFF(), length(scoresSEL()[[1]]) > 1, length(input$diffSEASON) >= 1)
+		TABLES$tableDIFF()		|>
+			rename_with(function(IN) str_remove(IN, "Episode(.|-)"))	|>
+			filter(Season %in% input$diffSEASON)	|>
+			select(!Link & !Season)	|>
+			select(where(is.factor) | Title | contains(scoresSEL()[[1]], ignore.case=FALSE))	|>	select(!contains(scoresSEL()[[2]], ignore.case=FALSE))
+	},	digits = reactive(input$roundTerm), striped = TRUE, na='')
+
+	TABLES$tableDIFFstats	<-	reactive({
+		req(TABLES$tableDIFF())
+		TABLES$tableDIFF()	|>	tableDIFFstats()
+	})	|>	bindEvent(input$dataTABload, TABLES$tableORD())
+
+	output$diffsStats	=	renderTable({
+		req(TABLES$tableDIFFstats(), length(scoresSEL()[[1]]) > 1)
+
+		TABLES$tableDIFFstats()	|>
+			rename_with(function(IN) str_remove(IN, "Episode(.|-)"))	|>
+			select(Season | Stat | contains(scoresSEL()[[1]], ignore.case=FALSE))	|>	select(!contains(scoresSEL()[[2]], ignore.case=FALSE))	|>
+			filter(Season == "All" | Season %in% input$diffSEASON)		|>
+			filter(Stat %in% input$dataSTATS)	|>	mutate(Stat = str_replace(Stat, "StDev", "Standard Deviation"))	|>
+			mutate(Season = ifelse(str_detect(Season, 'S\\d+'), str_SEASON(Season), Season))
+	},	digits = reactive(input$roundTerm), striped = TRUE, na='')
+
+	observe({	updateSliderInput(inputId = "diffsRANGE", value = c(-Inf, Inf))	})	|>	bindEvent(input$diffsRANGEres)
+	output$diffsRanks	=	renderTable({
+		req(TABLES$tableDIFF(), length(scoresSEL()[[1]]) > 1, input$diffsORDER)
+
+		pairsSEL	<-	combn(scoresSEL()[[1]], 2)
+
+		out	<-	TABLES$tableDIFF()	|>	ranksDIFF(SEAS = input$diffsSEAS)	|>
+			filter(	str_detect(Hosts, paste(paste(pairsSEL[1, ], pairsSEL[2, ], sep="-"), collapse = "|"))	)	|>
+			filter(	between(Difference, input$diffsRANGE[1], input$diffsRANGE[2])	)	|>
+			arrange(Difference)	|>	mutate(Difference	=	Difference	|>	round(2)	|>	paste0())
+
+		if (input$diffsORDER)	out	<-	out	|>	arrange(desc(Difference))
+		if (input$diffsSEAS)	{
+			out	<-	out	|>
+			filter(Season %in% input$diffSEASON)	|>
+			mutate(Season	=	Season	|>	str_SEASON())
+		}
+
+		out
+	})
 }
 
 
@@ -479,6 +605,12 @@ ui <- function(request)	{fluidPage(
 			width	=	2
 		),
 		mainPanel(
+			if (DBcontrol)	conditionalPanel(condition	=	"input.dataDBload == 0",
+				h3('Select a database from the "Database to Load" list on the left and click "Load Selected Database"'),
+			),
+			conditionalPanel(condition	=	"input.dataTABload == 0",
+				h3('Select a table from the "Table to Load" list on the left and click "Load Selected Table" to get data'),
+			),
 			fluidRow(
 				uiOutput('ordCON'),
 				# radioButtons(inputId	=	"tableORDER",	label	=	"Ordering",	inline	=	TRUE,
@@ -541,15 +673,40 @@ ui <- function(request)	{fluidPage(
 						)
 					),
 				),
+				tabPanel("Differences",
+					tabsetPanel(id	=	"diffs",
+						tabPanel("Host A - Host B",
+							tableOutput("diffsTable"),
+						),
+						tabPanel("Stats",
+							tableOutput("diffsStats"),
+						),
+						tabPanel("Ranks",
+							fluidRow(
+								column(3,	radioButtons("diffsORDER", label = "Difference Sorting",
+									choiceNames		=	c("Ascending",	"Descending"),
+									choiceValues	=	c(FALSE,		TRUE),
+									inline	=	TRUE)
+									),
+								column(2,	checkboxInput("diffsSEAS",	label = "Include Seasons")),
+								column(4,	sliderInput("diffsRANGE", label = NULL, min = 0, max = 10, value = c(-Inf, Inf), step = 1, width = "100%")),
+								column(2,	actionButton("diffsRANGEres", label = "Reset Range")),
+							),
+							tableOutput("diffsRanks"),
+						),
+						header	=	tagList(
+							fluidRow(
+								column(5,	checkboxGroupInput(inputId = "diffSCORES",	label = "Scores to Compare",	inline = TRUE,	choices = NULL)),
+								column(6,	checkboxGroupInput(inputId = "diffSEASON",	label = "Seasons to Include",	inline = TRUE,	choices = NULL)),
+							),
+						),
+					),
+				),
 			),
 			width	=	10
 		)
 	)
 )	}
 
+
 shinyApp(ui = ui, server = server)
-
-
-
-
-
