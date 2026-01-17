@@ -50,7 +50,7 @@ ORDER BY _Order_Series.sort
 	char(9)||'INSERT INTO "Stream_Notes" ("Series", "Stream_Date", "Stream_Link")'||char(10)||
 	char(9)||'VALUES ("'||readable||'", date(''now'', ''localtime''), new.Link);'||char(10)||
 	'END;' AS OUT
-	FROM INFO
+	FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%' GROUP BY tab ORDER BY rowNUM) INFO
 ), tabORDER AS (
 	SELECT
 	-- 'Tables' AS 'Creates',
@@ -79,7 +79,7 @@ SELECT
 tab, sort,
 group_concat(char(9) || 'CASE WHEN ' || host || ' NOT NULL THEN 1 ELSE 0 END', ' +' || char(10)) AS hostCOUNT,
 group_concat('ifnull(' || abbr || '.' || host || ', 0)', ' + ') || ' + 0.0)/present_' || abbr || '.Present' AS hostAverage
-FROM INFO
+FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%') INFO
 WHERE host NOT LIKE '%Rating%'
 GROUP BY tab
 ), hostsSTDEV AS (
@@ -89,7 +89,7 @@ INFO.tab, INFO.sort,
 group_concat('ifnull(pow(' || abbr || '.' || INFO.host || ' - (' || hostsAVG.hostAverage || ', 2), 0)', ' + ' || char(10)) ||
 ') / (present_' || abbr || '.Present - 1), 0.5), 3)'
 AS hostStDev
-FROM INFO
+FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%') INFO
 	LEFT JOIN hostsAVG ON INFO.tab = hostsAVG.tab
 GROUP BY INFO.tab
 ), HostsCALC AS (
@@ -113,7 +113,7 @@ hostCount || char(10) || char(9) ||
 'AS present' || char(10) || char(9) || 'FROM "' || INFO.tab || '"' || char(10) || ')'
 , ', ' || char(10))
 AS OUT, 1 AS 'part', INFO.sort
-FROM (SELECT * FROM INFO GROUP BY tab ORDER BY sort) INFO
+FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%' ORDER BY rowNUM) INFO
 	LEFT JOIN (SELECT * FROM HostsCALC GROUP BY tab) HostsCALC ON INFO.tab = HostsCALC.tab
 GROUP BY INFO.tab
 ), hostSummary AS(
@@ -129,7 +129,7 @@ char(9) || 'LEFT JOIN "' || INFO.tab || '" ' || INFO.abbr || ' ON ' || INFO.abbr
 char(9) || 'LEFT JOIN "Stream_Notes" Notes ON ' || INFO.abbr || '.Link = Notes.Stream_Link'
 AS OUT,
 2 as part, INFO.sort
-FROM (SELECT * FROM INFO GROUP BY tab) INFO
+FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%' GROUP BY tab ORDER BY rowNUM) INFO
 	LEFT JOIN HostsCALC ON INFO.tab = HostsCALC.tab
 
 GROUP BY INFO.tab
@@ -183,7 +183,6 @@ group_concat(char(9)||'SELECT '''||abbr||''' AS Series, "Episode-Air", "Episode-
 'SELECT ORD.name, FRAN.* FROM FRAN'||char(10)||
 char(9)||'LEFT JOIN "_Order_Series" ORD ON ORD.abbr = FRAN.Series' AS OUT
 FROM (SELECT * FROM INFO GROUP BY tab HAVING tab NOT LIKE '%Original%' ORDER BY rowNUM);
-
 
 --	should not be necessary as Triggers handle this now
 DROP VIEW IF EXISTS "_Stream_Notes_Update";
