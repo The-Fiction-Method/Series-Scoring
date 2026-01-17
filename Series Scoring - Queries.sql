@@ -1,4 +1,4 @@
---	create tables for each Series, create an _Order_Series, create RUN view, and run the code it generates
+--	create tables for each Series, create an _Order_Series, create __RUN view, and run the code it generates
 
 CREATE TABLE "@series" (
 	"Episode-Production"	INTEGER,
@@ -37,7 +37,7 @@ SELECT
 FROM TABS
 	JOIN pragma_table_info(TABS.name) COLS
 	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
-WHERE COLS.type IS 'NUMERIC' AND COLS.name NOT LIKE '%Rating%'
+WHERE (COLS.type IS 'NUMERIC' AND COLS.name NOT LIKE '%Rating%') OR COLS.name = 'Link'
 ORDER BY _Order_Series.sort
 ), createTRIGS AS (
 	SELECT
@@ -50,36 +50,23 @@ ORDER BY _Order_Series.sort
 	char(9)||'INSERT INTO "Stream_Notes" ("Series", "Stream_Date", "Stream_Link")'||char(10)||
 	char(9)||'VALUES ("'||readable||'", date(''now'', ''localtime''), new.Link);'||char(10)||
 	'END;' AS OUT
-	FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%' GROUP BY tab ORDER BY rowNUM) INFO
-), tabORDER AS (
-	SELECT
-	-- 'Tables' AS 'Creates',
-	'CREATE TABLE IF NOT EXISTS "_Order_Series" ('||char(10)||
-	char(9)||'"sort"	INTEGER UNIQUE,'||char(10)||
-	char(9)||'"name"	TEXT UNIQUE,'||char(10)||
-	char(9)||'"abbr"	TEXT,'||char(10)||
-	char(9)||'PRIMARY KEY("sort" AUTOINCREMENT)'||char(10)||
-	');' as OUT
+	FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host = 'Link') GROUP BY tab ORDER BY rowNUM) INFO
 ), tabNOTES AS (
 	SELECT
 	-- 'Tables' AS 'Creates',
 	'CREATE TABLE IF NOT EXISTS "Stream_Notes" ('||char(10)||
 	char(9)||'"Series" TEXT,'||char(10)||
 	char(9)||'"Stream_Date"	TEXT,'||char(10)||
-	char(9)||'"Stream_Link"	TEXT UNIQUE,'||char(10)||
+	char(9)||'"Stream_Link"	TEXT,'||char(10)||
 	char(9)||'"Stream_Length"	TEXT,'||char(10)||
 	char(9)||'"Notes"	TEXT'||char(10)||
-	')'||char(10)
-), createTAB AS (
-	SELECT * FROM tabORDER
-	UNION ALL
-	SELECT * FROM tabNOTES
+	')'||char(10) AS OUT
 ), hostsAVG AS (
 SELECT
 tab, sort,
 group_concat(char(9) || 'CASE WHEN ' || host || ' NOT NULL THEN 1 ELSE 0 END', ' +' || char(10)) AS hostCOUNT,
 group_concat('ifnull(' || abbr || '.' || host || ', 0)', ' + ') || ' + 0.0)/present_' || abbr || '.Present' AS hostAverage
-FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%') INFO
+FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link')) INFO
 WHERE host NOT LIKE '%Rating%'
 GROUP BY tab
 ), hostsSTDEV AS (
@@ -89,7 +76,7 @@ INFO.tab, INFO.sort,
 group_concat('ifnull(pow(' || abbr || '.' || INFO.host || ' - (' || hostsAVG.hostAverage || ', 2), 0)', ' + ' || char(10)) ||
 ') / (present_' || abbr || '.Present - 1), 0.5), 3)'
 AS hostStDev
-FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%') INFO
+FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link')) INFO
 	LEFT JOIN hostsAVG ON INFO.tab = hostsAVG.tab
 GROUP BY INFO.tab
 ), HostsCALC AS (
@@ -113,7 +100,7 @@ hostCount || char(10) || char(9) ||
 'AS present' || char(10) || char(9) || 'FROM "' || INFO.tab || '"' || char(10) || ')'
 , ', ' || char(10))
 AS OUT, 1 AS 'part', INFO.sort
-FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%' ORDER BY rowNUM) INFO
+FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link') ORDER BY rowNUM) INFO
 	LEFT JOIN (SELECT * FROM HostsCALC GROUP BY tab) HostsCALC ON INFO.tab = HostsCALC.tab
 GROUP BY INFO.tab
 ), hostSummary AS(
@@ -129,7 +116,7 @@ char(9) || 'LEFT JOIN "' || INFO.tab || '" ' || INFO.abbr || ' ON ' || INFO.abbr
 char(9) || 'LEFT JOIN "Stream_Notes" Notes ON ' || INFO.abbr || '.Link = Notes.Stream_Link'
 AS OUT,
 2 as part, INFO.sort
-FROM (SELECT * FROM INFO WHERE tab NOT LIKE '%Original%' GROUP BY tab ORDER BY rowNUM) INFO
+FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link') ORDER BY rowNUM) INFO
 	LEFT JOIN HostsCALC ON INFO.tab = HostsCALC.tab
 
 GROUP BY INFO.tab
@@ -137,8 +124,6 @@ ORDER BY INFO.sort
 )
 
 --	Tables
-SELECT '_Order_Series' AS Creates, * FROM tabORDER
-UNION ALL
 SELECT 'Stream_Notes' AS Creates, * FROM tabNOTES
 UNION ALL
 --	Triggers
@@ -183,6 +168,7 @@ group_concat(char(9)||'SELECT '''||abbr||''' AS Series, "Episode-Air", "Episode-
 'SELECT ORD.name, FRAN.* FROM FRAN'||char(10)||
 char(9)||'LEFT JOIN "_Order_Series" ORD ON ORD.abbr = FRAN.Series' AS OUT
 FROM (SELECT * FROM INFO GROUP BY tab HAVING tab NOT LIKE '%Original%' ORDER BY rowNUM);
+
 
 --	should not be necessary as Triggers handle this now
 DROP VIEW IF EXISTS "_Stream_Notes_Update";
