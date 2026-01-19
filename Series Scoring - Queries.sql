@@ -23,10 +23,9 @@ CREATE TABLE "_Order_Series" (
 --	__RUN
 DROP VIEW IF EXISTS '__RUN';
 CREATE VIEW '__RUN' AS
-WITH INFO AS (
 WITH RECURSIVE TABS AS (
 	SELECT name FROM sqlite_master WHERE type IS 'table'
-)
+), INFO AS (
 SELECT
 	TABS.name AS 'tab',
 	COLS.name AS 'host',
@@ -38,6 +37,19 @@ FROM TABS
 	JOIN pragma_table_info(TABS.name) COLS
 	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
 WHERE (COLS.type IS 'NUMERIC' AND COLS.name NOT LIKE '%Rating%') OR COLS.name = 'Link'
+ORDER BY _Order_Series.sort
+), episodes AS (
+SELECT
+	TABS.name AS 'tab',
+	COLS.name AS 'Episode',
+	_Order_Series.name AS 'readable',
+	_Order_Series.abbr,
+	_Order_Series.sort,
+	row_number() OVER (PARTITION BY COLS.name ORDER BY _Order_Series.sort) as rowNUM
+FROM TABS
+	JOIN pragma_table_info(TABS.name) COLS
+	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
+GROUP BY TABS.name HAVING COLS.name LIKE 'Episode%'
 ORDER BY _Order_Series.sort
 ), createTRIGS AS (
 	SELECT
@@ -95,19 +107,21 @@ SELECT
 'SELECT' || char(10) || char(9) ||
 '"' || INFO.readable || '" AS Series,' || char(10) || char(9) ||
 '"Title",' || char(10) ||
+'"' || EPI.Episode || '",' || char(10) ||
 hostCount || char(10) || char(9) ||
 'AS present' || char(10) || char(9) || 'FROM "' || INFO.tab || '"' || char(10) || ')'
 , ', ' || char(10))
 AS OUT, 1 AS 'part', INFO.sort
 FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link') GROUP BY tab ORDER BY rowNUM) INFO
 	LEFT JOIN (SELECT * FROM HostsCALC GROUP BY tab) HostsCALC ON INFO.tab = HostsCALC.tab
+	LEFT JOIN episodes EPI ON EPI.tab = INFO.tab
 GROUP BY INFO.tab
 ORDER BY INFO.sort
 ), hostSummary AS(
 SELECT
 'SELECT' || char(10) ||
 '''' || INFO.readable || ''' AS Series,' || char(10) ||
-INFO.abbr || '."Title",Notes.Stream_Date,' || char(10) ||
+INFO.abbr || '."Title", ' || INFO.abbr || '."' || EPI.Episode|| '" AS "Episode", Notes.Stream_Date,' || char(10) ||
 'round(nullif((' || hostAverage || ', 0), 3) AS Average,' || char(10) ||
 hostStDev || ' AS StDev,' || char(10) ||
 'nullif(present_' || INFO.abbr || '.Present, 0) AS "Hosts"' || char(10) ||
@@ -118,7 +132,7 @@ AS OUT,
 2 as part, INFO.sort
 FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link') ORDER BY rowNUM) INFO
 	LEFT JOIN HostsCALC ON INFO.tab = HostsCALC.tab
-
+	LEFT JOIN episodes EPI ON EPI.tab = INFO.tab
 GROUP BY INFO.tab
 ORDER BY INFO.sort
 )
@@ -152,7 +166,7 @@ SELECT '@_Summary' AS 'Creates',
 'DROP VIEW IF EXISTS ''@_Summary'';' || char(10) ||
 'CREATE VIEW ''@_Summary'' AS ' || char(10) ||
 'SELECT ' || char(10) ||
-'Series, Title, Average || '' average, '' || StDev || '' standard deviation'' as Summary' || char(10) ||
+'Series, Episode, Title, Average || '' average, '' || StDev || '' standard deviation'' as Summary' || char(10) ||
 'FROM "Score-Averages"' || char(10) || char(9) ||
 	'LEFT JOIN _Order_Series ON _Order_Series.name = "Score-Averages".series' || char(10) ||
 'WHERE Series NOT LIKE ''%Original%''' || char(10)||
