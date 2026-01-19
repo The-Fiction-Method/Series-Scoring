@@ -94,7 +94,6 @@ SELECT
 'present_' || INFO.abbr || ' AS (' || char(10) || char(9) ||
 'SELECT' || char(10) || char(9) ||
 '"' || INFO.readable || '" AS Series,' || char(10) || char(9) ||
-'"Episode-Air",' || char(10) ||
 hostCount || char(10) || char(9) ||
 'AS present' || char(10) || char(9) || 'FROM "' || INFO.tab || '"' || char(10) || ')'
 , ', ' || char(10))
@@ -106,12 +105,12 @@ GROUP BY INFO.tab
 SELECT
 'SELECT' || char(10) ||
 '''' || INFO.readable || ''' AS Series,' || char(10) ||
-'Title, ' || INFO.abbr || '."Episode-Air",Notes.Stream_Date,' || char(10) ||
+INFO.abbr || '."Title",Notes.Stream_Date,' || char(10) ||
 'round(nullif((' || hostAverage || ', 0), 3) AS Average,' || char(10) ||
 hostStDev || ' AS StDev,' || char(10) ||
 'nullif(present_' || INFO.abbr || '.Present, 0) AS "Hosts"' || char(10) ||
 'FROM "present_' || INFO.abbr || '"' || char(10) ||
-char(9) || 'LEFT JOIN "' || INFO.tab || '" ' || INFO.abbr || ' ON ' || INFO.abbr || '."Episode-Air" = present_' || INFO.abbr || '."Episode-Air"' || char(10) ||
+char(9) || 'LEFT JOIN "' || INFO.tab || '" ' || INFO.abbr || ' ON ' || INFO.abbr || '."Title" = present_' || INFO.abbr || '."Title"' || char(10) ||
 char(9) || 'LEFT JOIN "Stream_Notes" Notes ON ' || INFO.abbr || '.Link = Notes.Stream_Link'
 AS OUT,
 2 as part, INFO.sort
@@ -162,7 +161,7 @@ SELECT '_Franchise' AS 'Creates',
 'DROP VIEW IF EXISTS ''_Franchise'';' || char(10) ||
 'CREATE VIEW ''_Franchise'' AS ' || char(10) ||
 'WITH FRAN AS ('||char(10)||
-group_concat(char(9)||'SELECT '''||abbr||''' AS Series, "Episode-Air", "Episode-Production", "Title", "Air Date" FROM "'||tab||'"', char(10)||char(9)||'UNION ALL'||char(10))||
+group_concat(char(9)||'SELECT '''||abbr||''' AS Series, "Title", "Air Date" FROM "'||tab||'"', char(10)||char(9)||'UNION ALL'||char(10))||
 ')'||char(10)||
 'SELECT ORD.name, FRAN.* FROM FRAN'||char(10)||
 char(9)||'LEFT JOIN "_Order_Series" ORD ON ORD.abbr = FRAN.Series' AS OUT
@@ -184,4 +183,5 @@ FROM TABS
 
 ORDER BY _Order_Series.sort;
 */
+
 
