@@ -171,6 +171,7 @@ FROM (SELECT * FROM INFO GROUP BY tab HAVING tab NOT LIKE '%Original%' ORDER BY 
 
 
 --	should not be necessary as Triggers handle this now
+/*
 DROP VIEW IF EXISTS "_Stream_Notes_Update";
 CREATE VIEW "_Stream_Notes_Update" AS
 WITH RECURSIVE TABS AS (
@@ -181,4 +182,6 @@ SELECT
 	'INSERT INTO Stream_Notes (Stream_Link, Stream_Date) SELECT LINK, date() FROM "' || TABS.name || '" WHERE Link IS NOT NULL ON CONFLICT (Stream_Link) DO NOTHING;' AS 'INSERT_Commands'
 FROM TABS
 	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
-ORDER BY _Order_Series.sort
+
+ORDER BY _Order_Series.sort;
+*/
