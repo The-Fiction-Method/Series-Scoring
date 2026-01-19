@@ -94,13 +94,15 @@ SELECT
 'present_' || INFO.abbr || ' AS (' || char(10) || char(9) ||
 'SELECT' || char(10) || char(9) ||
 '"' || INFO.readable || '" AS Series,' || char(10) || char(9) ||
+'"Title",' || char(10) ||
 hostCount || char(10) || char(9) ||
 'AS present' || char(10) || char(9) || 'FROM "' || INFO.tab || '"' || char(10) || ')'
 , ', ' || char(10))
 AS OUT, 1 AS 'part', INFO.sort
-FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link') ORDER BY rowNUM) INFO
+FROM (SELECT * FROM INFO WHERE (tab NOT LIKE '%Original%' AND host <> 'Link') GROUP BY tab ORDER BY rowNUM) INFO
 	LEFT JOIN (SELECT * FROM HostsCALC GROUP BY tab) HostsCALC ON INFO.tab = HostsCALC.tab
 GROUP BY INFO.tab
+ORDER BY INFO.sort
 ), hostSummary AS(
 SELECT
 'SELECT' || char(10) ||
@@ -180,8 +182,5 @@ SELECT
 	'INSERT INTO Stream_Notes (Stream_Link, Stream_Date) SELECT LINK, date() FROM "' || TABS.name || '" WHERE Link IS NOT NULL ON CONFLICT (Stream_Link) DO NOTHING;' AS 'INSERT_Commands'
 FROM TABS
 	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
-
-ORDER BY _Order_Series.sort;
+ORDER BY _Order_Series.sort
 */
-
-
