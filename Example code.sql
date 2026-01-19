@@ -1,5 +1,6 @@
 CREATE TABLE "@Stargate_SG1" (
 	"Episode Air"	TEXT,
+	"Episode DVD"	TEXT,
 	"Title"	TEXT,
 	"Air Date" TEXT,
 	"Link"	TEXT,
@@ -12,6 +13,7 @@ CREATE TABLE "@Stargate_SG1" (
 
 CREATE TABLE "@Stargate_Atlantis" (
 	"Episode Air"	TEXT,
+	"Episode DVD"	TEXT,
 	"Title"	TEXT,
 	"Air Date" TEXT,
 	"Link"	TEXT,
@@ -24,6 +26,7 @@ CREATE TABLE "@Stargate_Atlantis" (
 
 CREATE TABLE "@Stargate_Universe" (
 	"Episode Air"	TEXT,
+	"Episode DVD"	TEXT,
 	"Title"	TEXT,
 	"Air Date" TEXT,
 	"Link"	TEXT,
