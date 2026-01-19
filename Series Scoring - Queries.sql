@@ -58,7 +58,6 @@ ORDER BY _Order_Series.sort
 	char(9)||'"Series" TEXT,'||char(10)||
 	char(9)||'"Stream_Date"	TEXT,'||char(10)||
 	char(9)||'"Stream_Link"	TEXT,'||char(10)||
-	char(9)||'"Stream_Length"	TEXT,'||char(10)||
 	char(9)||'"Notes"	TEXT'||char(10)||
 	')'||char(10) AS OUT
 ), hostsAVG AS (
@@ -185,3 +184,4 @@ FROM TABS
 
 ORDER BY _Order_Series.sort;
 */
+
