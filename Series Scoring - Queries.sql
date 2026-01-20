@@ -170,7 +170,7 @@ SELECT '@_Summary' AS 'Creates',
 'FROM "Score-Averages"' || char(10) || char(9) ||
 	'LEFT JOIN _Order_Series ON _Order_Series.name = "Score-Averages".series' || char(10) ||
 'WHERE Series NOT LIKE ''%Original%''' || char(10)||
-'ORDER BY Stream_Date DESC;' AS OUT
+'ORDER BY Stream_Date DESC, Episode DESC;' AS OUT
 UNION ALL
 --		Franchise
 SELECT '_Franchise' AS 'Creates', 
