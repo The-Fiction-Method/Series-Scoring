@@ -177,11 +177,11 @@ SELECT '_Franchise' AS 'Creates',
 'DROP VIEW IF EXISTS ''_Franchise'';' || char(10) ||
 'CREATE VIEW ''_Franchise'' AS ' || char(10) ||
 'WITH FRAN AS ('||char(10)||
-group_concat(char(9)||'SELECT '''||abbr||''' AS Series, "Title", "Air Date" FROM "'||tab||'"', char(10)||char(9)||'UNION ALL'||char(10))||
+group_concat(char(9)||'SELECT '''||abbr||''' AS Series, "Title", "' || Episode || '",  "Air Date" FROM "'||tab||'"', char(10)||char(9)||'UNION ALL'||char(10))||
 ')'||char(10)||
 'SELECT ORD.name, FRAN.* FROM FRAN'||char(10)||
 char(9)||'LEFT JOIN "_Order_Series" ORD ON ORD.abbr = FRAN.Series' AS OUT
-FROM (SELECT * FROM INFO GROUP BY tab HAVING tab NOT LIKE '%Original%' ORDER BY rowNUM);
+FROM (SELECT * FROM episode GROUP BY tab HAVING tab NOT LIKE '%Original%' ORDER BY rowNUM);
 
 
 --	should not be necessary as Triggers handle this now
