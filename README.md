@@ -204,4 +204,95 @@ The R script does these two things, and removes any colons, to then connect thes
 If the names do not match after this conversion, the table will not be listed by the R-Shiny applet.
 
 ---
-Work in progress
+##	"__RUN"
+
+In the "Series Scoring - Queries.sql" file is a long block of code to create a View named "__RUN".
+First, the code one runs in SQL is called a Query, which makes perfect sense when you are trying to get specific data out of it, as you are querying for certain results.
+Queries can be saved into a database, so you do not need to run it again whenever you need the results, and saved queries are called Views.
+
+Now, the "__RUN" view is fairly complex because it gets certain information out of the structure of the database and uses it to construct new the code for new queries.
+The queries can get rather complicated when dealing with multiple rows and trying to perform operations SQL does not directly support, so I constructed "__RUN" to do the heavy lifting.
+The code it generates can be run in the "Execute SQL" tab for various purposes.
+
+The first two rows in the view are to create the "Stream_Notes" table and SQL Triggers.
+The "Stream_Notes" table is optional but I like having a place to store notes, plus it provides a place to record the date the stream aired.
+The main tables are intended only for episode information, host scores, and the stream link.
+Originally I had a manual solution for adding entries to "Stream_Notes" but have moved to Triggers, which are what their name suggests.
+
+One trigger is needed for each series table, but whenever a cell in the "Link" column goes from NULL to a string starting with `http`, the appropriate trigger will add a row and write the series name, current date, and the link into "Stream_Notes."
+The reason I have it watch for changing from NULL, the initial value for these cells, is to ensure the triggers are not activated by changing the URL, such as if the wrong link were written in.
+
+The next row in "__RUN" is to create the "Score-Averages" View, which is one of those complex queries I mentioned before.
+Rather than bore you with explaining what all it does, just understand this View identifies the series, title, stream date (which requires the "Stream_Notes" table), average, standard deviation, and number of host scores provided.
+The reason I include the number of host scores here is for the context of the scores, and because I needed the number for the calculations.
+
+The next row is for the "@\_Summary" View, which repackages some of the "Score-Averages" data.
+It writes out the average and standard deviation in a convenient way to copy and paste into a chat, while also identifying the episode Title, place in the order, and series, but there is one more thing to this View.
+It is not shown, but this View is ordered by the stream date recorded in "Stream_Notes" with the newest first, so the score of the latest discussed episode is immediately accessible.
+If multiple episodes are discussed on the same day, then they will be sorted in descending order as well, but stream date is the primary search term.
+
+I should mention both the "Score-Averages" and "@\_Summmary" views look at all of the series tables.
+If the stream hosts cover multiple series, the score stats are presented in the same place.
+
+The final row in "__RUN" is not always relevant and might not work without changes, but I still want to include it.
+The "_Franchise" View is intended to connect all of the series tables together, with the series abbrevaiations, episode titles, the first episode-order column, and episode air dates as the columns.
+The view is constructed to follow the series order set in "_Order_Series" but does not otherwise sort the rows.
+
+It is important to stress the fact it is the first episode ordering column in the series tables that will be used for the "_Franchise" View.
+If a table has multiple it selects the first, meaning the left-most, so if this changes between the tables, the View may look odd.
+Really this is just here because I think a way to see all of the episodes across series in a single spot can be interesting, and this can either serve that end or a start for someone wanting to make something more complex.
+
+---
+
+#	R-Shiny Visualizer ("app_Series-Scoring.r")
+
+At last we come to the "app_Series-Scoring.r" script, and despite the complexity of building R-Shiny applets, this should be incredibly easy to use.
+After installing R you will need to make sure the necessary packages are also installed, which can be done by running this code block in the R GUI:
+
+```
+if (!require(shiny))	install.packages("shiny");		library(shiny)
+
+if (!require(DBI))		install.packages("DBI");		library(DBI)
+if (!require(stringr))	install.packages("stringr");	library(stringr)
+if (!require(dplyr))	install.packages("dplyr");		library(dplyr)
+if (!require(tidyr))	install.packages("tidyr");		library(tidyr)
+if (!require(ggplot2))	install.packages("ggplot2");	library(ggplot2)
+if (!require(purrr))	install.packages("purrr");		library(purrr)
+if (!require(tibble))	install.packages("tibble");		library(tibble)
+```
+
+This tells R to check if the packages are installed, installs them if they are missing, and then loads the package for use.
+Packages only need to be installed once, but this code starts the script so it will check for their presence each time.
+
+When R is told to install these packages, it will likely ask for CRAN mirror.
+The Comprehensive R Archive Network (CRAN) contains the program itself as well as the bulk of its published packages.
+Because R is widely used in academia, many institutions maintain mirrors of it, supporting their own use and that of the public.
+Any of these mirrors can be used.
+
+With the packages installed, the script should be ready to run.
+You can either execute the script directly, which should work perfectly as long as it is in the same directory as the database, or you can run it from the R GUI.
+In that case, you will want to use the `setwd` command to point R to the folder with the database.
+One quirk of R is it does not like the `\` symbol in paths, so use `/` instead.
+The path must also be identified as a string using quotes.
+The command then may look like this:
+
+```
+setwd("C:/Users/TheFictionMethod/Documents/Series Scoring")
+```
+
+When executing an R script directly, it assumes the working directory is the location of the script, which is why having the database in the same folder is necessary.
+
+When the script is executed, it should open a tab in your default browser, pointing to `127.0.0.1:XXXX`.
+The "127.0.0.1" points the browser to your local machine and "XXXX" number identifies the specific network port the R-Shiny applet is operating on.
+As long as the tab opens, you do not need to worry about any of that, but if it does not you will need to enter the path R will show you into a web browser manually.
+
+During use it may put up some warnings, but do not worry as these are only warnings.
+
+Lastly, once in the applet you will have to select the database you wish to load.
+It knows to search the working directory for `.db` files and puts them in a list.
+Pick the one you want from the list, and press the "Load Selected Database" button.
+It will then search the database for tables starting with `@` with names connected to those in the "_Order_Series", as explained earlier.
+Select the table you want to open, and press the "Load Selected Table" button to load it.
+
+At this point the applet is has the data and is good to use.
+Have fun exploring it!
