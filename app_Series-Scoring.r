@@ -316,6 +316,9 @@ server <- function(input, output, session) {
 			choiceValues	=	DATA$SEASONS	|>	str_SEAS(),
 			selected	=	DATA$SEASONS	|>	str_SEAS()
 		)
+
+		if (length(DATA$colHOST) == 1)	hideTab("main", "Differences")
+		if (length(DATA$colHOST) > 1)	showTab("main", "Differences")
 	},	priority	=	10)
 
 	observeEvent(list(input$dataHOSTS, input$dataTABload), {
@@ -670,7 +673,7 @@ ui <- function(request)	{fluidPage(
 					# selected	=	"Episode.Production"
 				# )
 			),
-			tabsetPanel(
+			tabsetPanel(id	=	"main",
 				tabPanel("Tables",
 					tabsetPanel(id	=	"tables",
 						tabPanel("All Seasons",	tableOutput("seriesTable"),	value = "all"),
@@ -774,3 +777,4 @@ ui <- function(request)	{fluidPage(
 
 
 shinyApp(ui = ui, server = server)
+
