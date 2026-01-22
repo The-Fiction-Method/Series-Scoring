@@ -181,7 +181,7 @@ group_concat(char(9)||'SELECT '''||abbr||''' AS Series, "Title", "' || Episode |
 ')'||char(10)||
 'SELECT ORD.name, FRAN.* FROM FRAN'||char(10)||
 char(9)||'LEFT JOIN "_Order_Series" ORD ON ORD.abbr = FRAN.Series' AS OUT
-FROM (SELECT * FROM episode GROUP BY tab HAVING tab NOT LIKE '%Original%' ORDER BY rowNUM);
+FROM (SELECT * FROM episodes GROUP BY tab HAVING tab NOT LIKE '%Original%' ORDER BY rowNUM);
 
 
 --	should not be necessary as Triggers handle this now
@@ -197,4 +197,5 @@ SELECT
 FROM TABS
 	JOIN _Order_Series ON ltrim(REPLACE(TABS.name, '_', ' '), '@') = _Order_Series.name
 ORDER BY _Order_Series.sort
+
 */
