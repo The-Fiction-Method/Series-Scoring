@@ -240,7 +240,8 @@ The view is constructed to follow the series order set in "_Order_Series" but do
 
 It is important to stress the fact it is the first episode ordering column in the series tables that will be used for the "_Franchise" View.
 If a table has multiple it selects the first, meaning the left-most, so if this changes between the tables, the View may look odd.
-Really this is just here because I think a way to see all of the episodes across series in a single spot can be interesting, and this can either serve that end or a start for someone wanting to make something more complex.
+Also, the query looks for the "Air Date" and if the column name is different ("Air.Date" for example) then the code should be updated before being run.
+Really this View is just here because I think a way to see all of the episodes across series in a single spot can be interesting, and this can either serve that end or a start for someone wanting to make something more complex.
 
 ---
 
@@ -296,3 +297,4 @@ Select the table you want to open, and press the "Load Selected Table" button to
 
 At this point the applet is has the data and is good to use.
 Have fun exploring it!
+
